@@ -18,7 +18,7 @@ Desk research done on 23 Oct 2026 from public web sources. Most sources are comp
 - **Explainable, configurable rules** with alerts and history, rather than a static dashboard.
 - **"Unknown is not zero":** missing data shows as "Awaiting data" or a range, never a silent zero.
 - **Proposals only:** rebalancing is shown as options for review; no trades are executed.
-- **Integer-paise money handling** and a pure, tested finance engine (171 tests).
+- **Integer-paise money handling** and a pure, tested finance engine (217 tests).
 - **India-first taxonomy** (AMFI NAV, INR, EMI-to-income rule) with an advisor/viewer role split enforced on the server.
 - Three isolated case studies alongside a live client, which suits teaching and demos.
 
@@ -41,18 +41,22 @@ Ranked by value to an Indian advisor or investor against build effort.
 | 11 | **Client-facing PDF reports**, white-label | Addepar, Orion | M | Roadmap 2.2 |
 | 12 | **Risk profiling questionnaire** feeding the target allocation | Nitrogen | S-M | Simple scored questionnaire mapped to model portfolios |
 
-## 4. Recommended order
+## 4. Status of the quick wins (23 Oct 2026)
+
+Done: risk-profile questionnaire (12), PWA install and offline shell (10), nominee page (5), email alerts (6). See the README "Features added" table. Not yet verified on real iPhone/Android hardware or against a live SMTP server.
+
+## 5. Recommended order
 
 1. **Quick wins:** risk questionnaire (12), PWA install (10), nominee page (5), email alerts (6).
 2. **Core value:** CAS import (1), then benchmark/TWR (2), then tax-aware rebalancing (3).
 3. **Platform:** make `GET` read-only, DB-backed throttle/idempotency, tenant isolation, CI (roadmap 0.2-0.4). These unlock the advisor console (7) and any real data.
 4. **Later:** Account Aggregator (4), Monte Carlo (9), white-label PDFs (11).
 
-## 5. Positioning suggestion
+## 6. Positioning suggestion
 
 Do not compete with INDmoney on breadth of connectors. Position as **the explainable advisor workbench**: every number traceable to a rule, no hidden assumptions, and recommendations that a human reviews. That is the one area the consumer apps and the enterprise platforms both under-serve.
 
-## 6. Sources
+## 7. Sources
 
 - [8 Best Net Worth Trackers in 2026](https://www.mexc.com/news/1018291)
 - [Best Net Worth Tracker Apps: 7 Options Compared for 2026](https://www.knowyourdosh.com/blog/best-net-worth-trackers/)

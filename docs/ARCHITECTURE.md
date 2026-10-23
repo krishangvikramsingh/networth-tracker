@@ -69,6 +69,12 @@ erDiagram
   clients ||--o{ scenarios : "saved what-ifs"
   clients ||--o{ audit_events : trail
   clients ||--o{ import_log : "duplicate-import guard"
+  clients ||--o{ risk_assessments : "questionnaire history"
+  clients ||--o{ nominees : names
+  nominees ||--o{ nominations : "share of an asset"
+  alerts ||--o| notifications : "queued once"
+  notifications ||--o{ notification_deliveries : "per recipient"
+  users ||--o| notification_prefs : chooses
   users ||--o{ sessions : has
   instruments ||--o{ market_observations : priced
   category_mappings }o--o| clients : "global or per client"
@@ -80,4 +86,6 @@ erDiagram
 * **Unknown ≠ zero:** unresolved classifications produce `[min,max]` bounds; rules return `triggered | possible | not_evaluable | ok | disabled`.
 * **Alert history:** unique partial index `(client_id, fingerprint) WHERE status != 'resolved'` makes duplicate live alerts impossible at the database level.
 * **Demo isolation:** fixtures flagged `is_demo`; reset only deletes/re-inserts fixture clients (Priya + 3 cases).
+* **Notifications:** `syncAlerts` inserts one pending `notifications` row per new alert (no I/O). `dispatchNotifications` (run by a timer in `index.ts`, or on demand) groups by recipient and client, retries failures up to 3 times and records each delivery, so request handlers never wait on a mail server.
+* **Risk profile and nominees** are standalone modules (`risk.ts`, `estate.ts`) with their own tables; the pure scoring and coverage logic is in `src/shared/riskprofile.ts` and `src/shared/estate.ts`.
 * **Transactions:** every multi-row change (`tx()`), import and reset is atomic.

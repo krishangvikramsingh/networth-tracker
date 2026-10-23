@@ -10,7 +10,7 @@ export interface AppState { data: ClientData; evaluation: Evaluation; alerts: Al
 export interface Toast { id: number; kind: "ok" | "err" | "info"; text: string }
 
 interface Ctx {
-  user: AppUser | null; setUser: (u: AppUser | null) => void; authChecked: boolean;
+  user: AppUser | null; setUser: (u: AppUser | null) => void; authChecked: boolean; unreachable: boolean; retryAuth: () => void;
   clients: ClientSummary[]; clientId: string | null; setClientId: (id: string) => void; reloadClients: () => Promise<void>;
   state: AppState | null; loading: boolean; error: string | null; reload: () => Promise<void>;
   canWrite: boolean; toast: (text: string, kind?: Toast["kind"]) => void; toasts: Toast[];
@@ -23,6 +23,7 @@ export function useEval() { const s = useApp().state; return s!; }
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [unreachable, setUnreachable] = useState(false); // server cannot be reached; says nothing about whether the user is signed in
   const [clients, setClients] = useState<ClientSummary[]>([]);
   const [clientId, setCid] = useState<string | null>(() => { try { return localStorage.getItem("nw.client"); } catch { return null; } });
   const [state, setState] = useState<AppState | null>(null);
@@ -37,7 +38,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "err" ? 7000 : 3800);
   }, []);
 
-  useEffect(() => { api.get("/api/auth/me").then((r) => setUser(r.user)).catch(() => {}).finally(() => setAuthChecked(true)); }, []);
+  const checkAuth = useCallback(() => {
+    setUnreachable(false);
+    api.get("/api/auth/me").then((r) => setUser(r.user)).catch((e) => { if (e instanceof ApiError && e.status === 0) setUnreachable(true); }).finally(() => setAuthChecked(true));
+  }, []);
+  useEffect(checkAuth, [checkAuth]);
 
   const reloadClients = useCallback(async () => {
     const r = await api.get<{ clients: ClientSummary[] }>("/api/clients");
@@ -64,7 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     catch (e) { toast(e instanceof Error ? e.message : "Something went wrong", "err"); return undefined; }
   }, [reload, toast]);
 
-  const value = useMemo<Ctx>(() => ({ user, setUser, authChecked, clients, clientId, setClientId, reloadClients, state, loading, error, reload, canWrite: user?.role === "admin", toast, toasts, run }),
-    [user, authChecked, clients, clientId, setClientId, reloadClients, state, loading, error, reload, toast, toasts, run]);
+  const value = useMemo<Ctx>(() => ({ user, setUser, authChecked, unreachable, retryAuth: checkAuth, clients, clientId, setClientId, reloadClients, state, loading, error, reload, canWrite: user?.role === "admin", toast, toasts, run }),
+    [user, authChecked, unreachable, checkAuth, clients, clientId, setClientId, reloadClients, state, loading, error, reload, toast, toasts, run]);
   return <C.Provider value={value}>{children}</C.Provider>;
 }

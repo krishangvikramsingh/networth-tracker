@@ -7,7 +7,7 @@ Working document for continuing development with Claude Code. Each task has a ch
 ```bash
 cd networth-tracker
 npm install
-npm run typecheck && npm test        # must stay green (171 tests)
+npm run typecheck && npm test        # must stay green (217 tests)
 npm run build && npm run test:e2e    # e2e needs a running server: npm run serve (after build)
 ```
 
@@ -115,10 +115,10 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 
 ### 2.2 Advisor product
 - [ ] Advisor console: many clients, search, portfolio-level alerts, task queue.
-- [ ] Client invitations; household/family grouping; nominees.
+- [ ] Client invitations; household/family grouping. (Nominee registry and per-asset nominations done: `/nominees`.)
 - [ ] Roles beyond admin/viewer (advisor, analyst, client, auditor).
 - [ ] White-label branded reports; server-side PDF generation (headless Chromium) with scheduled delivery.
-- [ ] Email/SMS/push notifications driven by alert events; user notification preferences.
+- [x] Email notifications driven by alert events with per-user preferences (`src/server/notify.ts`). Still open: SMS/push, escalation emails when severity rises, quiet hours, a real SMTP provider verified in staging.
 - [ ] Saved views, bulk edit, undo for destructive actions, onboarding wizard.
 
 ### 2.3 Commercial
@@ -133,7 +133,7 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 - [ ] Account Aggregator integration for consented bank/investment data.
 - [ ] Monte-Carlo goal planning and retirement drawdown scenarios (clearly labelled as scenarios).
 - [ ] Public API with keys, webhooks, and CRM/planning-tool integrations.
-- [ ] Mobile app (React Native or PWA).
+- [x] PWA: installable, offline shell, no private data cached. Still open: push notifications, native wrapper if needed, test on real iOS and Android hardware.
 - [ ] Multi-language and multi-currency support.
 - [ ] SOC 2 / ISO 27001 readiness.
 - [ ] Performance: background jobs, cached evaluations, read replicas, incremental recomputation.

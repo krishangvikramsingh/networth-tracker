@@ -33,11 +33,28 @@ Override with the `DEMO_*` variables in `.env.example`. In production mode rando
 
 | Command | What it does |
 |---|---|
-| `npm test` | 171 unit + API integration tests (engine, rules at/below/above thresholds, persistence, auth, import, reset) |
+| `npm test` | 217 unit + API integration tests (engine, rules at/below/above thresholds, persistence, auth, import, reset, risk profile, nominees, email alerts) |
 | `npm run typecheck` | `tsc --noEmit` over server, shared engine, UI and tests |
 | `npm run build` | production UI bundle in `dist/web` |
-| `npm run test:e2e` | Playwright/Chromium walkthrough against a running server (28 checks incl. mobile width) |
+| `npm run test:e2e` | Playwright/Chromium walkthrough against a running server (48 checks incl. mobile width, service worker and offline). It edits data, so point it at a throwaway database (see below) |
 | `npm run seed` | not needed — seeding is automatic on an empty database |
+
+End-to-end run on a throwaway database (never against data you care about):
+
+```bash
+npm run build
+DATABASE_PATH=/tmp/e2e.db PORT=8799 NOTIFY_INTERVAL_SECONDS=0 npm run serve &
+BASE=http://127.0.0.1:8799 npm run test:e2e
+```
+
+## Features added in the quick-wins round
+
+| Feature | Where | Notes |
+|---|---|---|
+| **Risk profile** | `/risk`, `src/shared/riskprofile.ts` | 8 questions score *willingness* and *ability* to take risk; the profile is the lower of the two, capped by guard-rails (horizon under 3 years, reserve under 3 months). Unanswered questions give a range, never a default. A profile maps to an **illustrative** model allocation that can be applied as the target allocation; the policy stays "not validated". |
+| **Nominees & estate readiness** | `/nominees`, `src/shared/estate.ts` | Nominee registry plus per-asset shares that must total 100%. "Not recorded" is shown as unknown, not as "no nominee". No passwords or credentials are stored. |
+| **Installable app (PWA)** | `src/web/public/` | Manifest, icons, service worker. The worker caches the app shell only and **never `/api`**, so no financial data is stored on the device. Offline, the app says it cannot reach the server instead of showing a sign-in form. Regenerate icons with `node scripts/make-icons.mjs`. |
+| **Email alerts** | `/notifications`, `src/server/notify.ts` | Opt-in per user, minimum severity, one digest per client. New alerts are queued in the database and sent by a background job, never inside a request. Without `SMTP_HOST` the messages go to a local outbox. Emails omit figures unless `NOTIFY_INCLUDE_DETAILS=1`. |
 
 ## Demonstration
 

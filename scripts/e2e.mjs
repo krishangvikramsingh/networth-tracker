@@ -1,13 +1,13 @@
 // End-to-end smoke test: drives the real UI in Chromium against a running server (npm start).
 import { chromium } from "playwright-core";
-import fs from "node:fs";
+import { findChromium } from "./chromium.mjs";
 const base = process.env.BASE ?? "http://127.0.0.1:8787";
-const exe = process.env.CHROMIUM_PATH ?? fs.readdirSync("/opt/pw-browsers").filter((d) => d.startsWith("chromium-")).map((d) => `/opt/pw-browsers/${d}/chrome-linux/chrome`).find((p) => fs.existsSync(p));
+const exe = findChromium();
 const browser = await chromium.launch({ executablePath: exe, args: ["--no-sandbox"] });
 const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 const errors = []; let passed = 0;
 page.on("pageerror", (e) => errors.push(e.message));
-page.on("console", (m) => m.type() === "error" && !/401/.test(m.text()) && errors.push(m.text()));
+page.on("console", (m) => m.type() === "error" && !/401|ERR_INTERNET_DISCONNECTED/.test(m.text()) && errors.push(m.text()));
 const ok = (c, msg) => { if (!c) { console.error("FAIL:", msg); process.exitCode = 1; } else { passed++; console.log("ok  -", msg); } };
 const text = async (sel) => (await page.locator(sel).first().innerText()).replace(/\s+/g, " ");
 
@@ -78,8 +78,61 @@ await page.getByRole("button", { name: "Add", exact: true }).click();
 ok(await page.locator("#entity-form .err").first().isVisible(), "empty form shows a validation error");
 await page.keyboard.press("Escape");
 
+// risk profile: answer, save, apply as target allocation
+await page.goto(base + "/risk"); await page.waitForSelector(".page h1");
+ok((await text(".card:has-text('Your result')")).includes("Answer the questions"), "risk page starts with no profile (not a default one)");
+for (const q of ["t_drop", "t_range", "t_exp"]) await page.locator(`input[name=${q}]`).nth(2).check();
+ok((await text(".card:has-text('Your result')")).includes("Awaiting answers"), "partial answers show a range, not a profile");
+ok(await page.getByRole("button", { name: "Save assessment" }).isDisabled(), "cannot save until every question is answered");
+for (const q of ["t_goal", "c_horizon", "c_income", "c_reserve", "c_obligations"]) await page.locator(`input[name=${q}]`).nth(2).check();
+ok((await text(".card:has-text('Your result')")).includes("Moderately aggressive"), "all-middle-high answers give Moderately aggressive");
+await page.getByRole("button", { name: "Save assessment" }).click(); await page.waitForSelector("text=Risk profile saved");
+page.once("dialog", (d) => d.accept());
+await page.getByRole("button", { name: "Apply as target allocation" }).click(); await page.waitForSelector("text=Target allocation updated");
+await page.goto(base + "/rules"); await page.waitForSelector("input[aria-label='Indian equity target percent']");
+ok((await page.inputValue("input[aria-label='Indian equity target percent']")) === "45", "applied model portfolio sets Indian equity target to 45%");
+
+// nominees: add a nominee, record a full nomination
+await page.goto(base + "/nominees"); await page.waitForSelector(".page h1");
+ok((await page.locator(".kpi", { hasText: "Assets fully nominated" }).innerText()).includes("0%"), "nomination coverage starts at 0% and rows read Not recorded");
+await page.getByRole("button", { name: "Add nominee" }).click();
+await page.fill("#nominee-form input[type=text] >> nth=0", "Test Nominee");
+await page.getByRole("button", { name: "Add", exact: true }).click(); await page.waitForSelector("text=Nominee added");
+await page.getByRole("button", { name: "Record" }).first().click();
+await page.getByRole("button", { name: "Save", exact: true }).click(); await page.waitForSelector("text=Nomination saved");
+ok(await page.locator("text=Complete (100%)").first().isVisible(), "a 100% nomination shows as Complete");
+ok(!(await page.locator(".kpi", { hasText: "Assets fully nominated" }).innerText()).includes("Awaiting data"), "coverage is a number once an asset is nominated");
+
+// email notifications
+// preferences belong to the user and survive "Reset demo data", so start from a known baseline to keep this script re-runnable
+await page.request.put(base + "/api/notifications/prefs", { data: { emailEnabled: false, minSeverity: "high" }, headers: { "X-Requested-With": "networth" } });
+await page.goto(base + "/notifications"); await page.waitForSelector(".page h1");
+ok(await page.locator("text=No mail server is connected").isVisible(), "without SMTP the page says emails go to the outbox");
+await page.getByLabel("Send email alerts").check(); await page.getByLabel("Lowest severity to email").selectOption("info");
+await page.getByRole("button", { name: "Save", exact: true }).click(); await page.waitForSelector("text=Notification settings saved");
+await page.getByRole("button", { name: "Send pending now" }).click(); await page.waitForSelector("text=/Nothing to send|email\\(s\\)/");
+ok(true, "email preferences save and the dispatcher can be run on demand");
+
+// PWA: manifest, service worker, no private data in caches, offline shell
+const man = await (await page.request.get(base + "/manifest.webmanifest")).json();
+ok(man.display === "standalone" && man.icons.some((i) => i.purpose === "maskable" && i.sizes === "512x512"), "manifest is installable (standalone, maskable icon)");
+ok((await page.request.get(base + "/sw.js")).headers()["cache-control"] === "no-cache", "service worker is always revalidated");
+await page.goto(base + "/");
+await page.waitForSelector(".kpi");
+const swReady = await page.evaluate(async () => { const r = await navigator.serviceWorker.ready; return !!r.active; });
+ok(swReady, "service worker is active");
+await page.reload(); await page.waitForSelector(".kpi");
+const cached = await page.evaluate(async () => { const out = []; for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) out.push(new URL(r.url).pathname); return out; });
+ok(cached.length > 0 && !cached.some((p) => p.startsWith("/api")), `caches hold the app shell only, never /api (${cached.length} entries)`);
+await page.context().setOffline(true);
+await page.reload(); await page.waitForSelector("text=Cannot reach the server");
+ok(!(await page.locator("#em").count()), "opening offline shows a connection message, not the sign-in form");
+await page.context().setOffline(false);
+await page.getByRole("button", { name: "Try again" }).click(); await page.waitForSelector(".kpi");
+ok(true, "retrying after reconnecting restores the session");
+
 // pages load without errors
-for (const r of ["/portfolio", "/cashflow", "/health", "/goals", "/cases", "/data", "/market", "/reports", "/demo", "/methodology"]) {
+for (const r of ["/portfolio", "/cashflow", "/health", "/alerts", "/goals", "/cases", "/data", "/market", "/reports", "/demo", "/methodology"]) {
   await page.goto(base + r); await page.waitForSelector(".page h1");
   ok(true, `page ${r} renders`);
 }
@@ -98,7 +151,7 @@ ok((await page.locator(".kpi", { hasText: "Confirmed liabilities" }).innerText()
 
 // responsive: mobile has no horizontal page scroll
 await page.setViewportSize({ width: 390, height: 800 });
-for (const r of ["/", "/assets", "/rules"]) { await page.goto(base + r); await page.waitForSelector(".page h1"); const w = await page.evaluate(() => document.documentElement.scrollWidth); ok(w <= 392, `no horizontal page scroll at 390px on ${r} (scrollWidth ${w})`); }
+for (const r of ["/", "/assets", "/rules", "/risk", "/nominees", "/notifications"]) { await page.goto(base + r); await page.waitForSelector(".page h1"); const w = await page.evaluate(() => document.documentElement.scrollWidth); ok(w <= 392, `no horizontal page scroll at 390px on ${r} (scrollWidth ${w})`); }
 ok(errors.length === 0, `no console/page errors${errors.length ? ": " + errors.slice(0, 3).join(" | ") : ""}`);
 console.log(`\n${passed} checks passed`);
 await browser.close();

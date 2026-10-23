@@ -1,12 +1,16 @@
 import { openDb } from "./db";
 import { createApp } from "./app";
 import { seedIfEmpty } from "./seed";
+import { mailerFromEnv, startDispatcher } from "./notify";
 
 const db = openDb();
 const seeded = seedIfEmpty(db);
-const app = createApp(db);
+const mailer = await mailerFromEnv(db);
+const app = createApp(db, { mailer });
+startDispatcher(db, mailer);
 const port = Number(process.env.PORT ?? 8787);
 app.listen(port, process.env.HOST ?? "127.0.0.1", () => {
+  console.log(`Email alerts: ${mailer.mode === "smtp" ? "SMTP" : "outbox only (set SMTP_HOST to send real email)"}`);
   console.log(`Net Worth Tracker API listening on http://${process.env.HOST ?? "127.0.0.1"}:${port}`);
   if (seeded.adminPassword) {
     console.log("First run: created synthetic demo users (change/replace via DEMO_* env vars):");

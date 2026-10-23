@@ -23,6 +23,10 @@ import { defaultSettings } from "../shared/fixtures";
 import { defaultRules } from "../shared/rules";
 import { evaluateClient } from "../shared/evaluate";
 import { MIGRATIONS_DIR } from "./db";
+import { applyProfileTargets, listAssessments, recordAssessment } from "./risk";
+import { addNominee, loadEstate, removeNominee, setNomination, updateNominee } from "./estate";
+import { dispatchNotifications, getPrefs, outboxMailer, outboxFor, recentNotifications, setPrefs, type Mailer } from "./notify";
+import { SEVERITY_ORDER } from "./alerts";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 
@@ -31,7 +35,8 @@ const wrap = (fn: (req: Request, res: Response) => unknown | Promise<unknown>) =
 };
 const param = (req: Request, k: string): string => String(req.params[k] ?? "");
 
-export function createApp(db: DB) {
+export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
+  const mailer = opts.mailer ?? outboxMailer(db);
   const app = express();
   app.disable("x-powered-by");
   const prod = process.env.NODE_ENV === "production";
@@ -199,6 +204,36 @@ export function createApp(db: DB) {
     res.json({ ok: true });
   }));
 
+
+  // risk profile
+  app.get("/api/clients/:cid/risk-profile", wrap((req, res) => res.json({ assessments: listAssessments(db, param(req, "cid")) })));
+  app.post("/api/clients/:cid/risk-profile", W, wrap((req, res) => res.status(201).json({ assessment: recordAssessment(db, param(req, "cid"), req.body, req.user) })));
+  app.post("/api/clients/:cid/risk-profile/apply", W, wrap((req, res) => {
+    const r = applyProfileTargets(db, param(req, "cid"), req.user);
+    refresh(db, param(req, "cid"));
+    res.json(r);
+  }));
+
+  // nominees and nominations
+  app.get("/api/clients/:cid/estate", wrap((req, res) => res.json(loadEstate(db, param(req, "cid")))));
+  app.post("/api/clients/:cid/nominees", W, wrap((req, res) => res.status(201).json({ nominee: addNominee(db, param(req, "cid"), req.body, req.user) })));
+  app.patch("/api/clients/:cid/nominees/:id", W, wrap((req, res) => res.json({ nominee: updateNominee(db, param(req, "cid"), param(req, "id"), req.body ?? {}, req.user) })));
+  app.delete("/api/clients/:cid/nominees/:id", W, wrap((req, res) => { removeNominee(db, param(req, "cid"), param(req, "id"), req.user); res.json({ ok: true }); }));
+  app.put("/api/clients/:cid/nominations", W, wrap((req, res) => { setNomination(db, param(req, "cid"), req.body, req.user); res.json(loadEstate(db, param(req, "cid"))); }));
+
+  // email notifications (preferences are per user, so a read-only viewer may manage their own)
+  app.get("/api/notifications", wrap((req, res) => res.json({
+    prefs: getPrefs(db, req.user!.id), mode: mailer.mode, email: req.user!.email, log: recentNotifications(db), outbox: mailer.mode === "outbox" ? outboxFor(db, req.user!.email) : [],
+  })));
+  app.put("/api/notifications/prefs", wrap((req, res) => {
+    const b = req.body ?? {};
+    if (typeof b.emailEnabled !== "boolean" || !SEVERITY_ORDER.includes(b.minSeverity)) throw new HttpError(422, "Choose whether to receive email and the lowest severity.");
+    const prefs = setPrefs(db, req.user!.id, { emailEnabled: b.emailEnabled, minSeverity: b.minSeverity });
+    audit(db, { clientId: null, userId: req.user!.id, entity: "notifications", action: "update", summary: `Email alerts ${prefs.emailEnabled ? `on (${prefs.minSeverity} and above)` : "off"} for ${req.user!.email}` });
+    res.json({ prefs });
+  }));
+  app.post("/api/notifications/dispatch", W, wrap(async (_req, res) => res.json(await dispatchNotifications(db, mailer))));
+
   // scenarios
   app.post("/api/clients/:cid/scenario/evaluate", wrap((req, res) => {
     const p = tradesIn.safeParse(req.body?.trades ?? []);
@@ -319,7 +354,8 @@ export function createApp(db: DB) {
   // ---- static SPA -----------------------------------------------------------------------------
   const dist = path.join(ROOT, "dist", "web");
   if (fs.existsSync(dist)) {
-    app.use(express.static(dist, { index: false, maxAge: "1h" }));
+    // the service worker and manifest must always be revalidated so a new release reaches installed copies
+    app.use(express.static(dist, { index: false, maxAge: "1h", setHeaders: (r, f) => { if (/(sw\.js|manifest\.webmanifest)$/.test(f)) r.setHeader("Cache-Control", "no-cache"); } }));
     app.get(/^\/(?!api).*/, (_req, res) => res.sendFile(path.join(dist, "index.html")));
   }
 

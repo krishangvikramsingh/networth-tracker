@@ -11,7 +11,8 @@ export interface AlertRow {
   firstDetectedAt: string; lastSeenAt: string; resolvedAt: string | null; acknowledgedAt: string | null; acknowledgedBy: string | null; changeCount: number;
   events?: Array<{ at: string; event: string; detail: string | null }>;
 }
-const ORDER: Severity[] = ["info", "warning", "high", "critical"];
+export const SEVERITY_ORDER: Severity[] = ["info", "warning", "high", "critical"];
+const ORDER = SEVERITY_ORDER;
 function effectiveSeverity(f: Finding, rule: Severity): Severity {
   if (f.kind === "data_gap") return "info";
   if (f.kind === "possible") return ORDER.indexOf(rule) > ORDER.indexOf("warning") ? "warning" : rule;
@@ -41,6 +42,8 @@ export function syncAlerts(db: DB, clientId: string, ev: Evaluation, now = nowIS
         db.prepare(`INSERT INTO alerts (id, client_id, rule_key, fingerprint, kind, status, severity, subject, current_label, threshold_label, why, action, effect, records, provisional, first_detected_at, last_seen_at)
           VALUES (?,?,?,?,?,'open',?,?,?,?,?,?,?,?,?,?,?)`).run(id, clientId, rule, fp, f.kind, sev, f.subject, f.currentLabel, f.thresholdLabel, f.why, f.action, f.effect ?? null, JSON.stringify(f.records), f.provisional ? 1 : 0, now, now);
         db.prepare("INSERT INTO alert_events (id, alert_id, at, event, detail) VALUES (?,?,?,?,?)").run(uid("ae"), id, now, "detected", `${f.kind}: ${f.currentLabel}`);
+        // queue only; sending happens in notify.ts so a request never waits on a mail server
+        db.prepare("INSERT INTO notifications (id, alert_id, client_id, severity, created_at) VALUES (?,?,?,?,?)").run(uid("nt"), id, clientId, sev, now);
         counts.created++;
       } else {
         const changed = ex.current_label !== f.currentLabel || ex.kind !== f.kind || ex.severity !== sev || ex.why !== f.why || ex.threshold_label !== f.thresholdLabel;
