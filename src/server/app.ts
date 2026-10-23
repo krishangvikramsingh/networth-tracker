@@ -1,3 +1,4 @@
+import compression from "compression";
 import express, { type NextFunction, type Request, type Response } from "express";
 import path from "node:path";
 import fs from "node:fs";
@@ -28,6 +29,7 @@ import { addNominee, loadEstate, removeNominee, setNomination, updateNominee } f
 import { dispatchNotifications, getPrefs, outboxMailer, outboxFor, recentNotifications, setPrefs, type Mailer } from "./notify";
 import { SEVERITY_ORDER } from "./alerts";
 import { buildOverview } from "./overview";
+import { changePassword, completeChallenge, createChallenge, disableMfa, enableMfa, mfaStatus, requestReset, resetPassword, startEnrolment } from "./mfa";
 import { buildOpenApi, renderDocsHtml, type RouteInfo } from "./openapi";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
@@ -47,6 +49,7 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   if (process.env.TRUST_PROXY) app.set("trust proxy", /^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY);
   const prod = process.env.NODE_ENV === "production";
 
+  app.use(compression()); // the state payload is large JSON (about 6 MB at 5,000 holdings) and compresses roughly tenfold
   app.use((req, res, next) => {
     const id = randomUUID().slice(0, 8);
     const t0 = Date.now();
@@ -93,6 +96,7 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
     const m = db.prepare("SELECT COUNT(*) AS n FROM schema_migrations").get() as { n: number };
     res.json({ ok: true, time: nowISO(), migrations: m.n });
   });
+  const setSessionCookie = (res: Response, token: string) => res.cookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: prod, maxAge: 12 * 3600_000, path: "/" });
   app.post("/api/auth/login", wrap(async (req, res) => {
     const { email, password } = (req.body ?? {}) as { email?: string; password?: string };
     const key = `${req.ip}:${String(email ?? "").toLowerCase()}`;
@@ -102,10 +106,35 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
     const ok = row ? verifyPassword(String(password ?? ""), row.password_hash) : spendHashingTime();
     if (!row || !ok) throw new HttpError(401, "Incorrect email or password.");
     loginSucceeded(db, key);
+    // A user with two-factor on gets a short-lived challenge, not a session, until the second step is done.
+    if (row.totp_enabled === 1) return void res.json({ mfaRequired: true, challenge: createChallenge(db, row.id) });
     const token = createSession(db, row.id);
-    res.cookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: prod, maxAge: 12 * 3600_000, path: "/" });
+    setSessionCookie(res, token);
     audit(db, { clientId: null, userId: row.id, entity: "auth", action: "login", summary: `${row.email} signed in` });
     res.json({ user: { id: row.id, email: row.email, name: row.name, role: row.role } });
+  }));
+  app.post("/api/auth/mfa/verify", wrap(async (req, res) => {
+    const { challenge, code } = (req.body ?? {}) as { challenge?: string; code?: string };
+    if (!loginThrottle(db, `mfa:${req.ip}`)) throw new HttpError(429, "Too many attempts. Try again in a few minutes.");
+    const out = completeChallenge(db, String(challenge ?? ""), String(code ?? ""));
+    setSessionCookie(res, out.session);
+    res.json({ user: out.user });
+  }));
+  // Reset by email. The answer never says whether the address has an account.
+  app.post("/api/auth/forgot", wrap(async (req, res) => {
+    const email = String((req.body as { email?: unknown } | undefined)?.email ?? "");
+    if (!loginThrottle(db, `forgot:${req.ip}`)) throw new HttpError(429, "Too many attempts. Try again in a few minutes.");
+    // The link's host must not come from the request (a forged Host header would send the token to an attacker); production needs PUBLIC_URL.
+    const baseUrl = process.env.PUBLIC_URL || (prod ? "" : `${req.protocol}://${req.get("host")}`);
+    if (baseUrl && email.includes("@")) await requestReset(db, email, mailer, baseUrl).catch((e) => console.error("reset email failed:", e instanceof Error ? e.message : e));
+    else if (!baseUrl) console.error("Password reset requested but PUBLIC_URL is not set; no email sent.");
+    res.json({ ok: true, message: "If that address has an account, a reset link is on its way. It works for 30 minutes." });
+  }));
+  app.post("/api/auth/reset", wrap(async (req, res) => {
+    const { token, password } = (req.body ?? {}) as { token?: string; password?: string };
+    if (!loginThrottle(db, `reset:${req.ip}`)) throw new HttpError(429, "Too many attempts. Try again in a few minutes.");
+    resetPassword(db, String(token ?? ""), password as string);
+    res.json({ ok: true });
   }));
   app.post("/api/auth/logout", (req, res) => {
     const t = parseCookies(req.headers.cookie)[COOKIE];
@@ -118,6 +147,12 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   // everything below needs a session
   app.use("/api", requireAuth);
   const W = requireWrite;
+  // Account security: every signed-in user, including read-only viewers, manages their own sign-in.
+  app.get("/api/account/security", (req, res) => res.json(mfaStatus(db, req.user!.id)));
+  app.post("/api/account/mfa/setup", wrap((req, res) => res.json(startEnrolment(db, req.user!.id))));
+  app.post("/api/account/mfa/enable", wrap((req, res) => res.json({ recoveryCodes: enableMfa(db, req.user!.id, String((req.body as { code?: unknown } | undefined)?.code ?? "")), ...mfaStatus(db, req.user!.id) })));
+  app.post("/api/account/mfa/disable", wrap((req, res) => { const b = (req.body ?? {}) as { password?: string; code?: string }; disableMfa(db, req.user!.id, String(b.password ?? ""), String(b.code ?? "")); res.json(mfaStatus(db, req.user!.id)); }));
+  app.post("/api/account/password", wrap((req, res) => { const b = (req.body ?? {}) as { current?: string; next?: string }; changePassword(db, req.user!.id, String(b.current ?? ""), b.next as string, parseCookies(req.headers.cookie)[COOKIE]); res.json({ ok: true }); }));
   // Tenant isolation, enforced in ONE place: every route with a :cid runs this first, so a new client-scoped route cannot forget it.
   // A client that belongs to another tenant answers exactly like one that does not exist, so ids cannot be probed.
   app.param("cid", (req, _res, next, cid) => {

@@ -26,6 +26,7 @@ jobs:
           node --import tsx src/server/index.ts > "$RUNNER_TEMP/server.log" 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8799/api/health && break; sleep 1; done
           BASE=http://127.0.0.1:8799 npm run test:e2e
+          BASE=http://127.0.0.1:8799 npm run test:a11y
       - if: failure()
         run: cat "$RUNNER_TEMP/server.log" || true
 

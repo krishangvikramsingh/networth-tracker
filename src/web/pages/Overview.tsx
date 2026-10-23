@@ -58,24 +58,24 @@ export function Overview() {
           <Link to="/data">Review what is still needed →</Link></Banner></div>)}
 
       <div className="stack">
-        <div className="section-title">Wealth</div>
-        <div className="grid g4">
+        <div className="hero">
           <Kpi label="Gross assets" value={formatCompact(nw.grossAssets)} sub={`${pf.lines.length} positions · ${formatINR(nw.grossAssets)}`} onClick={() => setOpen("gross")} />
-          <Kpi label="Confirmed liabilities" await={nw.liabilitiesStatus === "not_assessed"} value={formatCompact(nw.liabilities)} sub={nw.liabilitiesStatus === "not_assessed" ? "Not yet assessed — not zero" : nw.liabilitiesStatus === "partial" ? "Partly recorded" : "All recorded"}
-            badge={nw.liabilitiesStatus !== "complete" ? <Badge tone="warn">{nw.liabilitiesStatus === "partial" ? "partial" : "pending"}</Badge> : undefined} onClick={() => setOpen("liab")} />
           <Kpi label="Calculated net worth" await={awaitingNW} value={nw.netWorth != null ? formatCompact(nw.netWorth) : undefined}
             sub={awaitingNW ? `Upper bound ${formatCompact(nw.upperBound)} before liabilities` : nw.provisional ? "Provisional — liabilities incomplete" : "Assets − liabilities"} badge={nw.provisional && !awaitingNW ? <Badge tone="warn">provisional</Badge> : undefined} onClick={() => setOpen("nw")} />
+          <Kpi label="Confirmed liabilities" await={nw.liabilitiesStatus === "not_assessed"} value={formatCompact(nw.liabilities)} sub={nw.liabilitiesStatus === "not_assessed" ? "Not yet assessed — not zero" : nw.liabilitiesStatus === "partial" ? "Partly recorded" : "All recorded"}
+            badge={nw.liabilitiesStatus !== "complete" ? <Badge tone="warn">{nw.liabilitiesStatus === "partial" ? "partial" : "pending"}</Badge> : undefined} onClick={() => setOpen("liab")} />
+        </div>
+        <div className="section-title">Position and liquidity</div>
+        <div className="kpi-group">
           <Kpi label="Change in net worth (1 month)" await={!nw.changeMonth.comparable} value={nw.changeMonth.percent != null ? `${nw.changeMonth.percent >= 0 ? "+" : ""}${nw.changeMonth.percent.toFixed(2)}%` : undefined}
             tone={nw.changeMonth.percent != null ? (nw.changeMonth.percent >= 0 ? "good" : "crit") : ""} sub={nw.changeMonth.comparable ? `${formatCompact(nw.changeMonth.absolute)} since ${fmtDate(nw.changeMonth.previous!.date)}` : nw.changeMonth.reason} onClick={() => setOpen("change")} />
-        </div>
-        <div className="grid g4">
           <Kpi label="Remaining commitments" value={formatCompact(nw.commitmentsRemaining)} sub={nw.adjustedNetWorth != null ? `Adjusted net worth ${formatCompact(nw.adjustedNetWorth)}` : "Shown separately — not deducted from net worth"} />
           <Kpi label="Liquid assets" value={formatCompact(pf.liquidAssets)} sub={`${formatPct(pct(pf.liquidAssets, nw.grossAssets))} of gross · tiers 1–2`} onClick={() => setOpen("liquid")} />
           <Kpi label="Emergency-fund coverage" await={ev.emergencyCoverageMonths == null} value={ev.emergencyCoverageMonths != null ? `${ev.emergencyCoverageMonths.toFixed(1)} months` : undefined} sub={`Target ${d.settings.emergencyMonthsTarget} months · reserves ${formatCompact(pf.emergencyReserves)}`} onClick={() => setOpen("emerg")} />
           <Kpi label="Financial-health score" await={ev.health.overall == null} value={ev.health.overall != null ? `${ev.health.overall.toFixed(0)} / 100` : undefined} sub={ev.health.overall != null ? `${ev.health.band} · ${ev.health.provisional ? "provisional · " : ""}${(ev.health.coverage * 100).toFixed(0)}% of weight assessed` : "No component can be assessed yet"} badge={ev.health.provisional ? <Badge tone="warn">provisional</Badge> : undefined} onClick={() => nav("/health")} />
         </div>
         <div className="section-title">Investments</div>
-        <div className="grid g4">
+        <div className="kpi-group">
           <Kpi label="Total invested capital" await={pf.returns.investedCapital == null && pf.returns.coveredInvested == null} value={formatCompact(pf.returns.investedCapital ?? pf.returns.coveredInvested)}
             sub={pf.returns.investedCapital == null && pf.returns.coveredInvested != null ? `Partial (${formatPct(pf.returns.coveragePct, 0)} of value)` : "Invested capital not supplied"} onClick={() => setOpen("invested")} />
           <Kpi label="Investment market value" value={formatCompact(pf.returns.investmentValue)} sub="Excludes property, cash and pension products" />
@@ -84,7 +84,7 @@ export function Overview() {
           <Kpi label="XIRR" await={!pf.xirr.ok} value={pf.xirr.ok ? formatPct(pf.xirr.rate * 100, 2) : undefined} sub={pf.xirr.ok ? `${pf.xirr.flowCount} dated cash flows` : !pf.xirr.ok ? pf.xirr.reason : ""} onClick={() => setOpen("xirr")} />
         </div>
         <div className="section-title">Cash flow (monthly equivalents)</div>
-        <div className="grid g3">
+        <div className="kpi-group">
           <Kpi label="Monthly income" await={!cash.hasIncome} value={formatCompact(cash.monthlyIncome)} sub={cash.incomeAssessed ? "All income recorded" : "Partial — only items supplied so far"} badge={cash.hasIncome && !cash.incomeAssessed ? <Badge tone="warn">partial</Badge> : undefined} onClick={() => setOpen("inc")} />
           <Kpi label="Monthly expenses" await={cash.monthlyOutflows === 0} value={formatCompact(cash.monthlyOutflows)} sub={`${formatCompact(cash.monthlyOutflows * 12)} per year`} onClick={() => setOpen("exp")} />
           <Kpi label="Monthly cash-flow surplus / deficit" await={!cash.hasIncome && cash.monthlyOutflows === 0} value={formatCompact(cash.monthlySurplus)} tone={cash.monthlySurplus < 0 ? "crit" : "good"}

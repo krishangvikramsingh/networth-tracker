@@ -12,6 +12,12 @@ const obj = (properties: Json, required: string[] = []): Json => ({ type: "objec
 /** Hand-written request bodies for routes that do not use a zod schema directly. */
 const BODIES: Record<string, Json> = {
   "POST /api/auth/login": obj({ email: { type: "string" }, password: { type: "string" } }, ["email", "password"]),
+  "POST /api/auth/mfa/verify": obj({ challenge: { type: "string", description: "From the login response when mfaRequired is true" }, code: { type: "string", description: "6-digit authenticator code, or an unused recovery code" } }, ["challenge", "code"]),
+  "POST /api/auth/forgot": obj({ email: { type: "string" } }, ["email"]),
+  "POST /api/auth/reset": obj({ token: { type: "string" }, password: { type: "string", minLength: 10 } }, ["token", "password"]),
+  "POST /api/account/mfa/enable": obj({ code: { type: "string" } }, ["code"]),
+  "POST /api/account/mfa/disable": obj({ password: { type: "string" }, code: { type: "string" } }, ["password", "code"]),
+  "POST /api/account/password": obj({ current: { type: "string" }, next: { type: "string", minLength: 10 } }, ["current", "next"]),
   "POST /api/clients": obj({ name: { type: "string", minLength: 2, maxLength: 80 } }, ["name"]),
   "PUT /api/notifications/prefs": obj({ emailEnabled: { type: "boolean" }, minSeverity: { enum: ["info", "warning", "high", "critical"] } }, ["emailEnabled", "minSeverity"]),
   "POST /api/clients/{cid}/risk-profile": obj({ answers: { type: "object", description: "Question id to option index (0-3). Every question must be answered.", properties: Object.fromEntries(RISK_QUESTIONS.map((q) => [q.id, { type: "integer", minimum: 0, maximum: q.options.length - 1, description: q.text }])), required: RISK_QUESTIONS.map((q) => q.id) } }, ["answers"]),
@@ -36,6 +42,14 @@ for (const [name, schema] of Object.entries(ENTITY_SCHEMAS)) { BODIES[`POST /api
 const SUMMARY: Record<string, string> = {
   "GET /api/health": "Liveness and migration count (no sign-in needed)",
   "POST /api/auth/login": "Sign in; sets an HttpOnly session cookie. Throttled to 8 attempts per 15 minutes per address and email",
+  "POST /api/auth/mfa/verify": "Second step of sign-in for users with two-factor on; sets the session cookie. Throttled; a challenge allows 5 wrong codes",
+  "POST /api/auth/forgot": "Email a password-reset link (valid 30 minutes). Always answers the same, whether or not the address has an account",
+  "POST /api/auth/reset": "Set a new password from an emailed token (single use). Signs the account out everywhere",
+  "GET /api/account/security": "Whether two-factor is on and how many recovery codes remain",
+  "POST /api/account/mfa/setup": "Start two-factor enrolment: returns the secret and an otpauth:// URI",
+  "POST /api/account/mfa/enable": "Confirm enrolment with a code from the app; returns 8 single-use recovery codes (shown once)",
+  "POST /api/account/mfa/disable": "Turn two-factor off (needs the password and a current code)",
+  "POST /api/account/password": "Change your password (needs the current one); other sessions are signed out",
   "POST /api/auth/logout": "Sign out", "GET /api/auth/me": "Current user, or null",
   "GET /api/clients": "Clients in your organisation", "POST /api/clients": "Create a client",
   "GET /api/overview": "Portfolio-level summary of every client, plus an attention queue. Read-only",
@@ -65,7 +79,7 @@ export function buildOpenApi(routes: RouteInfo[], version: string): Json {
       summary: SUMMARY[key] ?? CRUD(r.method, path) ?? key, tags: [path.split("/")[2] ?? "api"], parameters: params,
       responses: { "200": { description: "Success (JSON)" }, "401": { description: "Not signed in" }, "403": { description: "Read-only role, missing CSRF header, or operator-only route" }, "404": { description: "Not found. Also returned for a client in another organisation" }, "422": { description: "Validation failed: { error, details: [{ field, message }] }" } },
     };
-    if (!/^\/api\/(health|auth\/login)/.test(path)) op.security = [{ session: [] }];
+    if (!/^\/api\/(health|auth\/(login|forgot|reset|mfa\/verify))/.test(path)) op.security = [{ session: [] }];
     if (BODIES[key]) op.requestBody = { required: true, content: { "application/json": { schema: BODIES[key] } } };
     paths[path] ??= {};
     paths[path][method] = op;

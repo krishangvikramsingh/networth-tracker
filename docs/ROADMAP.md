@@ -7,7 +7,7 @@ Working document for continuing development with Claude Code. Each task has a ch
 ```bash
 cd networth-tracker
 npm install
-npm run typecheck && npm test        # must stay green (301 tests)
+npm run typecheck && npm test        # must stay green (332 tests)
 npm run build && npm run test:e2e    # e2e needs a running server: npm run serve (after build)
 ```
 
@@ -56,7 +56,8 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 
 ### 0.4 Security hardening (before any real data)
 - [x] **Multi-tenant authorisation (application level):** DONE with an exhaustive route sweep. Still open: Postgres row-level security as defence in depth.
-- [ ] MFA (TOTP), password reset by email, email verification, session list/revoke, account lockout.
+- [x] MFA (TOTP) with recovery codes, password reset by email, password change (`/security`; `tests/mfa.test.ts` 22 tests, mutation-checked; `npm run test:e2e:auth`).
+- [ ] Email verification, session list/revoke, mandatory-MFA policy for admins, encrypt TOTP secrets at rest, account lockout.
 - [ ] Remove default demo credentials outside development (`src/server/seed.ts`); fail startup in production if unset.
 - [ ] Global rate limiting; request size limits per route; stricter upload validation.
 - [ ] Encryption at rest (DB/volume) and a secrets manager; rotate session secrets.
@@ -65,10 +66,10 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 - **Done when:** two-tenant isolation tests pass and the pen test has no critical or high findings.
 
 ### 0.5 Quality
-- [ ] Automated accessibility audit (axe/Lighthouse) in CI; fix findings; target WCAG 2.1 AA.
+- [x] Automated accessibility audit (axe-core, `npm run test:a11y`, in CI); findings fixed; 0 violations against WCAG 2.1 AA. Lighthouse not run.
 - [ ] Component tests for forms (`src/web/forms.tsx`) and tables (`src/web/ui.tsx`); visual regression screenshots for key pages.
-- [ ] Property-based tests for the engine (aggregate reconciliation never changes gross assets; allocation percentages sum to 100 on the chosen denominator).
-- [ ] Load test the evaluate path with 5,000 holdings; cache or incrementally update if p95 exceeds 300 ms.
+- [x] Property-based tests for the engine (`tests/properties.test.ts`, fast-check, 200 random portfolios per property): gross assets is the plain sum regardless of order; allocation shares sum to 100%; splitting an aggregate never changes gross; net worth = gross − liabilities; not-assessed stays null; evaluation is deterministic. Mutation-checked.
+- [x] Load test with 5,000 holdings (`scripts/load.ts`, `tests/scale.test.ts`): evaluate p95 5.5 ms; the whole `/state` request p95 about 100 ms (budget 300 ms), so no caching is needed. It found a 6.4 MB payload, so responses are now gzip-compressed. Pagination of the state payload is still open for much larger books.
 
 ---
 
