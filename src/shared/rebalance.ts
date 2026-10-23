@@ -21,7 +21,7 @@ export const REBALANCE_STEPS = [
   "Apply the drift tolerance to find classes outside their band.",
   "Assess liquidity and known cash obligations (emergency fund, next-90-day outflows, commitments).",
   "Estimate the value needed to reach each target, capped by what can realistically be sold.",
-  "Present options for your review — nothing is executed automatically.",
+  "Present options for your review, nothing is executed automatically.",
 ];
 
 export function buildRebalancePlan(rows: AllocationRow[], p: PortfolioResult, data: ClientData, params: {
@@ -40,7 +40,7 @@ export function buildRebalancePlan(rows: AllocationRow[], p: PortfolioResult, da
     const reasons: string[] = [];
     let direction: PlanItem["direction"] = "hold", amount = 0;
     if (undetermined) reasons.push(`Cannot be confirmed: ${r.minPct?.toFixed(1)}–${r.maxPct?.toFixed(1)}% depending on unclassified holdings, so no action is suggested until they are classified.`);
-    else if (!outside) reasons.push(`Within the ±${band} pp band — no action required.`);
+    else if (!outside) reasons.push(`Within the ±${band} pp band, no action required.`);
     else if (gap < 0) {
       direction = "reduce";
       amount = Math.min(-gap, sellable);
@@ -80,7 +80,7 @@ export function buildRebalancePlan(rows: AllocationRow[], p: PortfolioResult, da
   }
   if (p.unresolved.value > 0) notes.push(`${formatCompact(p.unresolved.value)} of holdings are unclassified: gaps are computed on the classified portion and may change once they are resolved.`);
   if (params.reserveRequired > 0) notes.push(`Liquidity guard: ${formatCompact(params.reserveRequired)} (emergency fund + next-90-day obligations) is kept aside before any cash is deployed.`);
-  if (!data.settings.investmentPolicyValidated) notes.push("The 50/20/10/10/5/5 allocation is the sample from the project brief — it is not a validated investment policy for this client.");
+  if (!data.settings.investmentPolicyValidated) notes.push("The 50/20/10/10/5/5 allocation is the sample from the project brief, it is not a validated investment policy for this client.");
   return {
     denominator: params.denominator, denominatorValue: D, policyValidated: data.settings.investmentPolicyValidated, provisional: p.unresolved.value > 0,
     reserveRequired: params.reserveRequired, cashAvailable: params.cashAvailable, freeCash: free, items, newMoneyNeeded: newMoney, proceedsFromSales: proceeds, steps: REBALANCE_STEPS, notes,
@@ -107,7 +107,7 @@ export function applyTrades(data: ClientData, trades: Trade[]): { data: ClientDa
   let n = 0;
   for (const t of trades) {
     if (!t.amount) continue;
-    if (t.amount > 0) { holdings.push(mk(++n, t.label ?? `Simulated purchase — ${ASSET_CLASS_LABEL[t.assetClass]}`, t.assetClass, t.amount)); cashDelta -= t.amount; continue; }
+    if (t.amount > 0) { holdings.push(mk(++n, t.label ?? `Simulated purchase: ${ASSET_CLASS_LABEL[t.assetClass]}`, t.assetClass, t.amount)); cashDelta -= t.amount; continue; }
     const want = -t.amount;
     const pool = holdings.filter((h) => !h.archived && !h.parentId && (h.classOverride ?? h.assetClass) === t.assetClass && h.liquidityTier <= 3 && !holdings.some((c) => c.parentId === h.id));
     const avail = sum(pool.map((h) => h.currentValue));

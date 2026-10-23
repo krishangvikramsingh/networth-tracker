@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend as RLegend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatCompact } from "@shared/money";
 import { Card, Icon, ICONS } from "./ui";
@@ -21,17 +22,29 @@ function TipBox({ active, payload, label, fmt }: any) {
   );
 }
 
+/** Draws its children once they are near the screen. A page with a dozen charts then paints its first screen without building the rest. */
+function WhenVisible({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState(typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    if (seen || !ref.current) return;
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setSeen(true); io.disconnect(); } }, { rootMargin: "400px 0px" });
+    io.observe(ref.current); return () => io.disconnect();
+  }, [seen]);
+  return <div ref={ref} style={{ height: "100%" }}>{seen ? children : null}</div>;
+}
+
 /** Wraps a chart with a title, legend/table toggle (accessible data table view) and a descriptive label. */
 export function ChartCard({ title, subtitle, children, table, height = 260, actions, empty }: {
   title: string; subtitle?: ReactNode; children: ReactNode; table?: { headers: string[]; rows: ReactNode[][] }; height?: number; actions?: ReactNode; empty?: ReactNode;
 }) {
   const [asTable, setAsTable] = useState(false);
   return (
-    <Card title={title} subtitle={subtitle} actions={<div className="row no-print">{actions}{table && !empty && <button type="button" className="btn sm ghost chart-toggle" onClick={() => setAsTable(!asTable)} aria-pressed={asTable}><Icon d={ICONS.chart} size={14} />{asTable ? "Chart" : "Table"}</button>}</div>}>
+    <Card className="chart-card" title={title} subtitle={subtitle} actions={<div className="row no-print">{actions}{table && !empty && <button type="button" className="btn sm ghost chart-toggle" onClick={() => setAsTable(!asTable)} aria-pressed={asTable}><Icon d={ICONS.chart} size={14} />{asTable ? "Chart" : "Table"}</button>}</div>}>
       {empty ? empty : asTable && table ? (
         <div className="tbl-wrap" style={{ maxHeight: height + 40, overflow: "auto" }}><table className="tbl"><thead><tr>{table.headers.map((h, i) => <th key={h} className={i ? "r" : ""}>{h}</th>)}</tr></thead>
           <tbody>{table.rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} className={j ? "r num" : ""}>{c}</td>)}</tr>)}</tbody></table></div>
-      ) : <div style={{ height }} role="img" aria-label={`${title}. ${subtitle ?? ""} Use the Table button for the underlying numbers.`}>{children}</div>}
+      ) : <div className="chart-body" style={{ minHeight: height }} role="img" aria-label={`${title}. ${subtitle ?? ""} Use the Table button for the underlying numbers.`}><WhenVisible>{children}</WhenVisible></div>}
     </Card>
   );
 }

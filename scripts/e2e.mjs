@@ -154,9 +154,31 @@ for (const r of ["/portfolio", "/cashflow", "/health", "/alerts", "/goals", "/ca
 await page.goto(base + "/cases"); await page.waitForSelector("text=Side-by-side comparison");
 ok((await text("table.tbl")).includes("₹5.00 Cr"), "Case A net worth ₹5.00 Cr");
 
+// task queue: create from an alert, assign, finish, delete (leaves nothing behind)
+await page.goto(base + "/alerts"); await page.waitForSelector(".alert-row");
+await page.locator(".alert-row").first().click();
+await page.getByRole("button", { name: "Create task" }).click();
+await page.waitForSelector("text=New task from this alert");
+const taskTitle = (await page.inputValue("#task-form input[type=text]"));
+ok(taskTitle.startsWith("Follow up:"), "Create task from an alert pre-fills a title");
+await page.selectOption("#task-form select >> nth=1", { index: 1 });
+await page.getByRole("button", { name: "Create task", exact: true }).click();
+await page.waitForSelector("text=Task created");
+await page.goto(base + "/tasks"); await page.waitForSelector(".task-row");
+ok((await page.locator(".task-row").count()) === 1, "the new task appears in the queue");
+ok((await page.locator(".kpi", { hasText: "Open tasks" }).innerText()).includes("1"), "open-task count is 1");
+await page.locator(".task-status").first().selectOption("done"); await page.waitForSelector("text=Marked done");
+await page.getByRole("button", { name: "Done", exact: true }).click(); await page.waitForSelector(".task-title.done");
+ok(true, "marking a task done moves it to the Done filter");
+await page.getByRole("button", { name: /Delete task/ }).click(); await page.waitForSelector("text=Task deleted");
+ok((await page.locator(".task-row").count()) === 0, "a task can be deleted");
+
+// account security lists this device
+await page.goto(base + "/security"); await page.waitForSelector("text=Where you are signed in");
+ok((await page.locator(".sessions li", { hasText: "this device" }).count()) === 1, "Account security marks this device");
+
 // demo reset restores Priya
-await page.goto(base + "/demo");
-page.once("dialog", (d) => d.accept());
+await page.goto(base + "/demo");page.once("dialog", (d) => d.accept());
 await page.getByRole("button", { name: "Reset demo data" }).click();
 await page.waitForSelector("text=Demo data reset");
 await page.goto(base + "/");

@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiError } from "../api";
 import { useApp } from "../store";
 
@@ -102,5 +102,19 @@ export function ResetPassword({ token }: { token: string }) {
         {err && <div className="err" role="alert" style={{ color: "var(--crit)", fontWeight: 550 }}>{err}{/no longer valid/.test(err) && <> <a href="/">Ask for a new link</a></>}</div>}
         <button type="submit" className="btn primary" disabled={busy || pw.length < 10 || mismatch} style={{ justifyContent: "center" }}>{busy ? "Saving…" : "Set new password"}</button>
       </form>
+    </Shell>);
+}
+
+/** Opened from the emailed link: /verify-email?token=… Works whether or not the person is signed in. */
+export function ConfirmEmail({ token, signedIn }: { token: string; signedIn: boolean }) {
+  const [state, setState] = useState<"working" | "ok" | "fail">("working"); const [err, setErr] = useState("");
+  useEffect(() => {
+    let live = true;
+    api.post("/api/auth/verify-email", { token }).then(() => live && setState("ok")).catch((e) => { if (live) { setErr(msg(e, "Could not confirm the address.")); setState("fail"); } });
+    return () => { live = false; };
+  }, [token]);
+  return (
+    <Shell title={state === "ok" ? "Email confirmed" : state === "fail" ? "This link did not work" : "Confirming your email…"} lead={state === "ok" ? "This address can now receive alerts and password-reset mail." : state === "fail" ? err : undefined}>
+      {state !== "working" && <a className="btn primary" href={signedIn ? "/security" : "/"} style={{ justifyContent: "center" }}>{signedIn ? "Back to Account security" : "Go to sign in"}</a>}
     </Shell>);
 }

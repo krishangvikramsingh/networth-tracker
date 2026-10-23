@@ -245,7 +245,7 @@ const EVAL: Record<RuleKey, Evaluator> = {
       findings.push({ fingerprint: `${def.key}:${r.assetClass}`, kind: definite ? "breach" : "possible", subject: label,
         currentLabel: definite ? `${r.pct?.toFixed(1)}% (${r.driftPp! > 0 ? "+" : ""}${r.driftPp?.toFixed(1)} pp)` : `${r.minPct?.toFixed(1)}–${r.maxPct?.toFixed(1)}%`,
         thresholdLabel: `target ${r.targetPct}% ± ${cfg.value} pp`, provisional: r.provisional,
-        why: definite ? `${label} is ${r.pct?.toFixed(1)}% vs target ${r.targetPct}% — a drift of ${r.driftPp! > 0 ? "+" : ""}${r.driftPp?.toFixed(1)} percentage points (tolerance ±${cfg.value} pp) on ${DEN_SHORT[den]}.`
+        why: definite ? `${label} is ${r.pct?.toFixed(1)}% vs target ${r.targetPct}%, a drift of ${r.driftPp! > 0 ? "+" : ""}${r.driftPp?.toFixed(1)} percentage points (tolerance ±${cfg.value} pp) on ${DEN_SHORT[den]}.`
           : `${label} could be ${r.minPct?.toFixed(1)}%–${r.maxPct?.toFixed(1)}% against a target of ${r.targetPct}% once unclassified holdings are resolved.`,
         action: definite ? `Gap to target ≈ ${formatCompact(Math.abs(r.gapValue ?? 0))} ${((r.gapValue ?? 0) > 0) ? "to add" : "to reduce"}. See the rebalancing scenario for options.` : "Resolve unclassified holdings to confirm the drift.",
         records: c.portfolio.lines.filter((l) => l.assetClass === r.assetClass).map((l) => ({ type: "holding" as const, id: l.sourceId, name: l.name })) });

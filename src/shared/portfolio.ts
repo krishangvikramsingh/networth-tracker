@@ -95,7 +95,7 @@ export function toEffectiveLines(holdings: Holding[]): { lines: EffectiveLine[];
       reconciliation.push({ parentId: h.id, parentName: h.name, aggregateValue: h.currentValue, childrenValue: childSum, kind: "unallocated_remainder", difference: remainder });
       const invested = h.investedValue != null && sum(kids.map((k) => k.investedValue)) <= h.investedValue && kids.every((k) => k.investedValue != null)
         ? h.investedValue - sum(kids.map((k) => k.investedValue)) : null;
-      lines.push(mk(h, { id: `${h.id}#remainder`, name: `${h.name} — unallocated remainder`, value: remainder, invested, isRemainder: true, isAggregate: true }));
+      lines.push(mk(h, { id: `${h.id}#remainder`, name: `${h.name}, unallocated remainder`, value: remainder, invested, isRemainder: true, isAggregate: true }));
     } else if (remainder < 0) {
       reconciliation.push({ parentId: h.id, parentName: h.name, aggregateValue: h.currentValue, childrenValue: childSum, kind: "children_exceed_aggregate", difference: -remainder });
     }

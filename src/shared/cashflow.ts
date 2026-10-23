@@ -18,7 +18,7 @@ export function effectiveCashflows(data: ClientData): CashflowItem[] {
   const derived: CashflowItem[] = data.liabilities
     .filter((l: Liability) => !l.archived && l.type !== "credit_card" && l.emi && l.emi > 0 && !linked.has(l.id))
     .map((l) => ({
-      id: `emi_${l.id}`, clientId: l.clientId, kind: "expense", category: "loan_emi", name: `EMI — ${l.name}`, amount: l.emi!,
+      id: `emi_${l.id}`, clientId: l.clientId, kind: "expense", category: "loan_emi", name: `EMI: ${l.name}`, amount: l.emi!,
       frequency: "monthly", anchorDate: l.nextDueDate, endDate: null, verified: true, essential: true, commitmentId: null, liabilityId: l.id,
       dataStatus: "collected", notes: "Derived from liability record", archived: false, isIllustrative: l.isIllustrative,
     }));
@@ -85,7 +85,7 @@ export function summariseCashflow(data: ClientData): CashflowSummary {
     monthlyIncome, monthlyIncomeVerified, monthlyOutflows, monthlySurplus: monthlyIncome - monthlyOutflows,
     annualIncome: monthlyIncome * 12, annualOutflows: monthlyOutflows * 12 + sum(oneOff.map((o) => o.amount)), annualSurplus: monthlyIncome * 12 - monthlyOutflows * 12 - sum(oneOff.map((o) => o.amount)),
     savingsRate: sr,
-    savingsNote: monthlyIncome <= 0 ? "No income recorded — savings rate cannot be calculated."
+    savingsNote: monthlyIncome <= 0 ? "No income recorded, savings rate cannot be calculated."
       : `(Income − spending) ÷ income, where spending excludes ${[...excluded].map((c) => CASHFLOW_LABEL[c]).join(", ") || "nothing"}.`,
     spendingForSavings: spending,
     essentialMonthly: Math.round(sum(exp.filter((i) => i.essential).map(meq))),
@@ -149,7 +149,7 @@ export function buildForecast(data: ClientData, asOf: ISODate, horizonMonths = 1
     scheduledCommitments += sum(s.events.map((e) => e.amount));
     if (s.unscheduledRemaining > 0) {
       unscheduledCommitments += s.unscheduledRemaining;
-      unscheduled.push({ label: `${c.name} — remaining commitment`, amount: s.unscheduledRemaining, kind: "outflow", reason: "payment schedule not recorded" });
+      unscheduled.push({ label: `${c.name}, remaining commitment`, amount: s.unscheduledRemaining, kind: "outflow", reason: "payment schedule not recorded" });
     }
   }
   let maturityNoValue = 0;
@@ -167,7 +167,7 @@ export function buildForecast(data: ClientData, asOf: ISODate, horizonMonths = 1
     const per = FREQ_PER_YEAR[p.premiumFrequency ?? "annual"] || 1;
     const amt = Math.round(p.annualPremium! / per);
     const occ = occurrences({ frequency: p.premiumFrequency ?? "annual", anchorDate: p.nextPremiumDate, endDate: p.maturityDate }, from, to) ?? [];
-    for (const d of occ) events.push({ date: d, label: `Premium — ${p.insurer ?? p.type}`, amount: amt, kind: "outflow", source: "policy" });
+    for (const d of occ) events.push({ date: d, label: `Premium: ${p.insurer ?? p.type}`, amount: amt, kind: "outflow", source: "policy" });
   }
 
   const bankBalances = data.holdings.filter((h) => !h.archived && (h.instrumentType === "bank_balance" || h.instrumentType === "cash"));

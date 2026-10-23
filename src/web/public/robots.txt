@@ -1,0 +1,3 @@
+# The sign-in page may be indexed; the API and everything behind it may not.
+User-agent: *
+Disallow: /api/

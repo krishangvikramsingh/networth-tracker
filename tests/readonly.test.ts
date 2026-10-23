@@ -48,7 +48,7 @@ afterAll(() => { server.close(); db.close(); delete process.env.APP_AS_OF; for (
 describe("GET requests are read-only", () => {
   const GETS = [
     "/api/health", "/api/auth/me", "/api/meta", "/api/overview", "/api/clients", `${P}/state`, `${P}/archived/holdings`, `${P}/risk-profile`, `${P}/estate`, `${P}/scenarios`, `${P}/report`,
-    `${P}/market/proposals`, "/api/market/status", "/api/import/template/holdings", "/api/notifications",
+    `${P}/market/proposals`, "/api/market/status", "/api/import/template/holdings", "/api/notifications", "/api/tasks", "/api/account/security", "/api/account/sessions",
   ];
   for (const url of GETS) {
     it(`${url} issues no write statement`, async () => {

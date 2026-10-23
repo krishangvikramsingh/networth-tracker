@@ -49,7 +49,7 @@ export async function buildWorkbook(data: ClientData, ev: Evaluation, alerts: Al
   wb.creator = "Net Worth Tracker"; wb.created = new Date();
   const s = wb.addWorksheet("Summary");
   s.columns = [{ width: 38 }, { width: 90 }];
-  s.addRow([`Wealth report — ${data.client.name}`]).font = { bold: true, size: 14 };
+  s.addRow([`Wealth report: ${data.client.name}`]).font = { bold: true, size: 14 };
   for (const l of summaryLines(data, ev)) s.addRow([l.label, l.value]);
   s.addRow([]);
   s.addRow(["Disclaimer", "Educational tool; figures depend on user-supplied data and the documented methodology. Not investment advice."]);

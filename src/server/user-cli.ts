@@ -14,7 +14,8 @@ const password = process.env.NEW_USER_PASSWORD || randomBytes(9).toString("base6
 if (password.length < 10) { console.error("Password must be at least 10 characters."); process.exit(1); }
 const db = openDb();
 try {
-  const u = createUser(db, email, name, role, password, tenant);
+  const verified = process.env.NEW_USER_VERIFIED === "1";
+  const u = createUser(db, email, name, role, password, tenant, { requireEmailVerification: !verified });
   console.log(`Created ${u.role} ${u.email} in tenant "${u.tenantId}".`);
   if (!process.env.NEW_USER_PASSWORD) console.log(`Generated password (shown once): ${password}`);
 } catch (e) {

@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "reac
 import { api } from "./api";
 import { useApp } from "./store";
 import { Badge, Banner, Icon, ICONS, Skeleton, fmtDate } from "./ui";
-import { Login, ResetPassword } from "./pages/AuthScreens";
+import { ConfirmEmail, Login, ResetPassword } from "./pages/AuthScreens";
 
 /** Each page is its own chunk, fetched when first visited, so the first load stays small. */
 const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
@@ -26,6 +26,7 @@ const RiskProfilePage = page(() => import("./pages/RiskProfile"), "RiskProfilePa
 const NomineesPage = page(() => import("./pages/Nominees"), "NomineesPage");
 const NotificationsPage = page(() => import("./pages/Notifications"), "NotificationsPage");
 const SecurityPage = page(() => import("./pages/Security"), "SecurityPage");
+const TasksPage = page(() => import("./pages/Tasks"), "TasksPage");
 
 /** A page chunk that cannot be fetched (offline, or a release replaced it) should not blank the whole app. */
 class PageBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -47,6 +48,7 @@ const NAV: Array<{ to: string; label: string; icon: string; group?: string }> = 
   { to: "/nominees", label: "Nominees & estate", icon: ICONS.users },
   { to: "/rules", label: "Rules & allocation", icon: ICONS.rules, group: "Intelligence" },
   { to: "/alerts", label: "Alerts", icon: ICONS.bell },
+  { to: "/tasks", label: "Tasks", icon: ICONS.check },
   { to: "/notifications", label: "Email notifications", icon: ICONS.mail },
   { to: "/health", label: "Financial health", icon: ICONS.heart },
   { to: "/risk", label: "Risk profile", icon: ICONS.shield },
@@ -107,9 +109,11 @@ export function App() {
       <h1 style={{ fontSize: 18 }}>Cannot reach the server</h1>
       <p className="sec" style={{ margin: "8px 0 14px" }}>You may be offline, or the server may be stopped. You have not been signed out. Nothing is stored on this device.</p>
       <button type="button" className="btn primary" onClick={retryAuth}>Try again</button></div></div>);
+  if (loc.pathname === "/verify-email") return <ConfirmEmail token={new URLSearchParams(loc.search).get("token") ?? ""} signedIn={!!user} />;
   if (!user && loc.pathname === "/reset") return <ResetPassword token={new URLSearchParams(loc.search).get("token") ?? ""} />;
   if (!user) return <Login />;
 
+  if (user.mfaSetupRequired && loc.pathname !== "/security") return <Navigate to="/security" replace />;
   const openAlerts = state?.alerts.filter((a) => a.status === "open" && a.kind !== "data_gap").length ?? 0;
   const client = clients.find((c) => c.id === clientId);
   const ev = state?.evaluation;
@@ -168,6 +172,7 @@ export function App() {
                 <Route path="/nominees" element={<NomineesPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/security" element={<SecurityPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/risk" element={<RiskProfilePage />} />
                 <Route path="/cases" element={<CasesPage />} />
                 <Route path="/data" element={<DataCollectionPage />} />

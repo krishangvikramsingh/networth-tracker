@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../store";
-import { Badge, Banner, Card, Empty, Modal, PageHead, SevBadge, Tabs, fmtDateTime } from "../ui";
+import { Badge, Banner, Card, Empty, Modal, PageHead, SevBadge, Tabs, fmtDate, fmtDateTime } from "../ui";
+import { TaskForm, type TaskRow } from "./Tasks";
 import type { AlertRow } from "../../server/alerts";
 
 type Tab = "open" | "acknowledged" | "resolved" | "data";
@@ -15,6 +16,7 @@ export function AlertsPage() {
   const all = state!.alerts;
   const [tab, setTab] = useState<Tab>((sp.get("tab") as Tab) || "open");
   const [sev, setSev] = useState("");
+  const [taskFor, setTaskFor] = useState<AlertRow | null>(null);
   const openId = sp.get("open");
   const sel = openId ? all.find((a) => a.id === openId) : null;
   const groups: Record<Tab, AlertRow[]> = {
@@ -43,16 +45,21 @@ export function AlertsPage() {
               <span className="right"><SevBadge s={a.severity} /><div className="small num" style={{ marginTop: 4 }}>{a.currentLabel}</div><div className="small muted">{a.thresholdLabel}</div></span>
             </button>))}
       </Card>
-      {sel && <AlertDrawer a={sel} onClose={() => setSp((p) => { p.delete("open"); return p; })} />}
+      {sel && <AlertDrawer a={sel} onClose={() => setSp((p) => { p.delete("open"); return p; })} onTask={(a) => { setTaskFor(a); setSp((p) => { p.delete("open"); return p; }); }} />}
+      {taskFor && <TaskForm defaults={{ title: `Follow up: ${taskFor.ruleName}${taskFor.subject ? `, ${taskFor.subject}` : ""}`, clientId: taskFor.clientId, alertId: taskFor.id }} onClose={() => setTaskFor(null)} onSaved={() => {}} />}
     </>
   );
 }
 
-function AlertDrawer({ a, onClose }: { a: AlertRow; onClose: () => void }) {
+function AlertDrawer({ a, onClose, onTask }: { a: AlertRow; onClose: () => void; onTask: (a: AlertRow) => void }) {
   const { clientId, run, canWrite } = useApp();
   const nav = useNavigate();
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const loadTasks = () => api.get(`/api/tasks?alert=${a.id}`).then((r) => setTasks(r.tasks)).catch(() => {});
+  useEffect(() => { loadTasks(); }, [a.id]);
   return (
     <Modal drawer title={a.ruleName} onClose={onClose} footer={<>
+      {canWrite && a.status !== "resolved" && <button type="button" className="btn" onClick={() => onTask(a)}>Create task</button>}
       {canWrite && a.status === "open" && <button type="button" className="btn primary" onClick={() => run(() => api.post(`/api/clients/${clientId}/alerts/${a.id}/ack`), "Alert acknowledged")}>Acknowledge</button>}
       {canWrite && a.status === "acknowledged" && <button type="button" className="btn" onClick={() => run(() => api.post(`/api/clients/${clientId}/alerts/${a.id}/unack`), "Alert re-opened")}>Re-open</button>}
       <button type="button" className="btn" onClick={onClose}>Close</button></>}>
@@ -65,6 +72,7 @@ function AlertDrawer({ a, onClose }: { a: AlertRow; onClose: () => void }) {
         <Card title="Why this triggered"><p>{a.why}</p></Card>
         <Card title="Recommended action"><p>{a.action}</p>{a.effect && <p className="small sec" style={{ marginTop: 6 }}><b>Expected effect:</b> {a.effect}</p>}<p className="small muted" style={{ marginTop: 6 }}>A recommendation to review, never an automatic trade, redemption or transfer.</p></Card>
         {a.records.length > 0 && <Card title="Relevant records"><ul style={{ margin: 0, paddingLeft: 18 }}>{a.records.slice(0, 12).map((r, i) => <li key={i}><a href={REC_LINK[r.type] + (REC_LINK[r.type].includes("?") ? "&" : "?") + "q=" + encodeURIComponent(r.name)} onClick={(e) => { e.preventDefault(); nav(REC_LINK[r.type] + (REC_LINK[r.type].includes("?") ? "&" : "?") + "q=" + encodeURIComponent(r.name)); }}>{r.name}</a> <span className="muted small">({r.type})</span></li>)}</ul></Card>}
+        <Card title="Tasks for this alert" actions={<Link className="small" to="/tasks">All tasks</Link>}>{tasks.length === 0 ? <p className="small muted">No follow-up yet. Use Create task to assign one.</p> : <ul style={{ margin: 0, paddingLeft: 18 }}>{tasks.map((t) => <li key={t.id}><b>{t.title}</b> <Badge tone={t.status === "done" ? "good" : t.status === "in_progress" ? "info" : "outline"}>{t.status.replace("_", " ")}</Badge><div className="small muted">{t.assigneeName ?? "Unassigned"}{t.dueDate ? `, due ${fmtDate(t.dueDate)}` : ""}</div></li>)}</ul>}</Card>
         <Card title="History">{a.events?.length ? <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{a.events.map((e, i) => <li key={i}><b>{e.event}</b> · {fmtDateTime(e.at)}{e.detail ? `, ${e.detail}` : ""}</li>)}</ul> : <p className="small muted">No events.</p>}</Card>
       </div>
     </Modal>

@@ -68,7 +68,7 @@ describe("TOTP (RFC 6238)", () => {
 describe("two-factor sign-in", () => {
   it("leaves sign-in unchanged for a user who has not turned it on", async () => {
     const r = await login(); expect(r.status).toBe(200); expect(r.cookie).toContain("nw_session"); expect(r.data.mfaRequired).toBeUndefined();
-    expect((await call("GET", "/api/account/security", undefined, r.cookie)).data).toEqual({ enabled: false, recoveryCodesLeft: 0 });
+    expect((await call("GET", "/api/account/security", undefined, r.cookie)).data).toMatchObject({ enabled: false, recoveryCodesLeft: 0, emailVerified: true });
   });
   it("does not turn on until a correct code proves the secret was scanned", async () => {
     const s = await login(); const { data: setup } = await call("POST", "/api/account/mfa/setup", {}, s.cookie);

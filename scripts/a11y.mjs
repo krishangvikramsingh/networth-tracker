@@ -5,7 +5,7 @@ import { chromium } from "playwright-core";
 import { findChromium } from "./chromium.mjs";
 const axeSource = (await import("node:fs")).readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const base = process.env.BASE ?? "http://127.0.0.1:8787";
-const pages = ["/", "/clients", "/assets", "/portfolio", "/cashflow", "/rules", "/alerts", "/health", "/goals", "/nominees", "/notifications", "/security", "/risk", "/cases", "/data", "/market", "/reports", "/demo", "/methodology"];
+const pages = ["/", "/clients", "/assets", "/portfolio", "/cashflow", "/rules", "/alerts", "/health", "/goals", "/nominees", "/notifications", "/security", "/tasks", "/risk", "/cases", "/data", "/market", "/reports", "/demo", "/methodology"];
 const browser = await chromium.launch({ executablePath: findChromium(), args: ["--no-sandbox"] });
 let total = 0; const seen = new Map();
 for (const scheme of ["light", "dark"]) for (const [w, h] of [[1440, 900], [390, 844]]) {

@@ -135,7 +135,7 @@ export function DataTable<T extends { id?: string }>({ cols, rows, search, defau
         <table className="tbl" style={dense ? { fontSize: 12.5 } : undefined}>
           <thead><tr>{cols.filter((c) => !c.hide).map((c) => (
             <th key={c.key} className={c.right ? "r" : ""} aria-sort={sort?.key === c.key ? (sort.dir === 1 ? "ascending" : "descending") : undefined}>
-              {c.sort ? <button type="button" onClick={() => setSort(sort?.key === c.key ? { key: c.key, dir: (-sort.dir) as 1 | -1 } : { key: c.key, dir: 1 })}>{c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}</button> : c.label}
+              {c.sort ? <button type="button" onClick={() => setSort(sort?.key === c.key ? { key: c.key, dir: (-sort.dir) as 1 | -1 } : { key: c.key, dir: 1 })}>{c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}</button> : c.label || <span className="sr-only">Actions</span>}
             </th>))}</tr></thead>
           <tbody>
             {shown.map((r, i) => (

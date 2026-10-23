@@ -5,9 +5,11 @@ Run on 2026-10-23 (Node 26.5, Chromium 1234). Quick-win features added (risk pro
 | Gate | Result |
 |---|---|
 | Type check (`tsc --noEmit`) | pass, 0 errors |
-| Unit + API tests (`vitest`) | **332 passed** across 17 files (engine 122 · property-based 7 · scale 2 · two-factor and reset 22 · API/integration 32 · features API 24 · read-only GETs 22 · tenant isolation 18 · runtime state 15 · risk profile 14 · Priya baseline 12 · nomination rule 10 · estate 8 · clients overview 8 · OpenAPI 7 · market 5 · escalation 4) |
+| Unit + API tests (`vitest`) | **379 passed** across 20 files (engine 122 · property-based 7 · scale 2 · two-factor and reset 22 · account security 14 · task queue 9 · UI components 21 · API/integration 32 · features API 24 · read-only GETs 22 · tenant isolation 18 · runtime state 15 · risk profile 14 · Priya baseline 12 · nomination rule 10 · estate 8 · clients overview 8 · OpenAPI 7 · market 5 · escalation 4) |
 | Production build | pass |
 | Load (5,000 holdings) | engine evaluate **p95 5.5 ms**; full `GET /state` **median 83 ms, p95 100 ms** (budget 300 ms). Payload is 6.4 MB uncompressed, so gzip was added (asserted by a test). Run `node --import tsx scripts/load.ts` |
+| Lighthouse (Chrome for Testing, signed-in Overview and Assets) | **Desktop: performance 99, accessibility 100, best practices 100, SEO 100.** Phone (Lighthouse's slow-4G simulation): performance 82 to 83 (first paint 2.9 s, no layout shift, 0 ms blocking), the other three 100. Below-the-fold charts now draw only when scrolled near, hashed assets are cached for a year, and `robots.txt` is valid |
+| Visual regression | 16 screens (8 pages × desktop and phone) match their baselines pixel for pixel (`npm run test:visual`, local only); a deliberate radius change fails 15 of 16 |
 | Accessibility (axe-core, WCAG 2.1 A/AA) | **0 violations** on 18 pages × light/dark × 1440 px and 390 px (`npm run test:a11y`). First run found 26 distinct issues, fixed: button names missing their visible text, links distinguished by colour alone, scrollable tables not keyboard-reachable, badge contrast in dark mode |
 | End-to-end browser walkthrough | **56 checks passed** (twice in a row on one database), no console errors |
 | Launches from clean database | yes — migrations applied, fixtures seeded, demo users printed |

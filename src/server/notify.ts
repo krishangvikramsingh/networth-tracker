@@ -83,7 +83,7 @@ export async function dispatchNotifications(db: DB, mailer: Mailer, opts: { base
     if (n.alert_status !== "open") { finish.run("skipped", n.alert_status === "resolved" ? "Condition cleared before sending." : "Already acknowledged before sending.", now, n.id); out.skipped++; out.processed++; }
     else live.push(n);
   }
-  const users = db.prepare("SELECT u.id, u.email, u.tenant_id, p.min_severity FROM notification_prefs p JOIN users u ON u.id = p.user_id WHERE p.email_enabled = 1").all() as any[];
+  const users = db.prepare("SELECT u.id, u.email, u.tenant_id, p.min_severity FROM notification_prefs p JOIN users u ON u.id = p.user_id WHERE p.email_enabled = 1 AND u.email_verified_at IS NOT NULL").all() as any[];
   const delivery = (nid: string, uidv: string) => db.prepare("SELECT status, attempts FROM notification_deliveries WHERE notification_id = ? AND user_id = ?").get(nid, uidv) as { status: string; attempts: number } | undefined;
   const settled = (d: ReturnType<typeof delivery>) => !!d && (d.status !== "failed" || d.attempts >= MAX_ATTEMPTS);
   const upsert = db.prepare(`INSERT INTO notification_deliveries (notification_id, user_id, status, attempts, error, at) VALUES (?,?,?,1,?,?)

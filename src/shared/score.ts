@@ -147,11 +147,11 @@ export function computeHealthScore(data: ClientData, p: PortfolioResult, nw: Net
   const overall = aw > 0 ? sum(assessed.map((x) => x.score! * x.weight)) / aw : null;
   const coverage = totalW > 0 ? aw / totalW : 0;
   const bands = [...s.scoreBands].sort((a, b) => a.min - b.min);
-  const band = overall == null ? null : coverage < 0.5 ? "Provisional — low coverage" : [...bands].reverse().find((b) => overall >= b.min)?.label ?? bands[0]?.label ?? null;
+  const band = overall == null ? null : coverage < 0.5 ? "Provisional, low coverage" : [...bands].reverse().find((b) => overall >= b.min)?.label ?? bands[0]?.label ?? null;
   const unassessed = comps.filter((x) => !x.assessed).map((x) => x.label);
   return {
     overall, band, coverage, provisional: coverage < 1 || assessed.some((x) => x.provisional), lowCoverage: coverage < 0.5, components: comps,
-    disclosure: unassessed.length ? `Provisional: based on ${assessed.length} of 6 components (${(coverage * 100).toFixed(0)}% of total weight). Unassessed components are excluded and the remaining weights re-normalised — they are not given full or zero marks: ${unassessed.join(", ")}.` : assessed.some((x) => x.provisional) ? "All components assessed, but some inputs are provisional." : "All components assessed.",
+    disclosure: unassessed.length ? `Provisional: based on ${assessed.length} of 6 components (${(coverage * 100).toFixed(0)}% of total weight). Unassessed components are excluded and the remaining weights re-normalised, they are not given full or zero marks: ${unassessed.join(", ")}.` : assessed.some((x) => x.provisional) ? "All components assessed, but some inputs are provisional." : "All components assessed.",
     methodology: "Educational financial-health indicator on a 0–100 scale. Not a CIBIL/credit-bureau score and not financial advice. Each component is scored by documented piecewise-linear rules; the overall score is the weighted average of assessed components with weights re-normalised.",
   };
 }

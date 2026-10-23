@@ -23,16 +23,16 @@ export function verifyPassword(pw: string, stored: string): boolean {
 }
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
-export function createUser(db: DB, email: string, name: string, role: "admin" | "viewer", password: string, tenantId = DEFAULT_TENANT): AuthUser {
+export function createUser(db: DB, email: string, name: string, role: "admin" | "viewer", password: string, tenantId = DEFAULT_TENANT, opts: { requireEmailVerification?: boolean } = {}): AuthUser {
   if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(tenantId)) throw new Error("Tenant id must be 2-40 characters: lowercase letters, digits, - or _.");
   const id = uid("usr");
-  db.prepare("INSERT INTO users (id, email, name, role, password_hash, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)").run(id, email.toLowerCase(), name, role, hashPassword(password), nowISO(), tenantId);
+  db.prepare("INSERT INTO users (id, email, name, role, password_hash, created_at, tenant_id, email_verified_at) VALUES (?,?,?,?,?,?,?,?)").run(id, email.toLowerCase(), name, role, hashPassword(password), nowISO(), tenantId, opts.requireEmailVerification ? null : nowISO());
   return { id, email: email.toLowerCase(), name, role, tenantId };
 }
-export function createSession(db: DB, userId: string): string {
+export function createSession(db: DB, userId: string, meta: { userAgent?: string; ip?: string } = {}): string {
   const token = randomBytes(32).toString("hex");
   const exp = new Date(Date.now() + SESSION_HOURS * 3600_000).toISOString();
-  db.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?,?,?,?)").run(sha(token), userId, nowISO(), exp);
+  db.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at, user_agent, ip) VALUES (?,?,?,?,?,?)").run(sha(token), userId, nowISO(), exp, meta.userAgent?.slice(0, 200) ?? null, meta.ip ?? null);
   return token;
 }
 export function destroySession(db: DB, token: string) { db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha(token)); }

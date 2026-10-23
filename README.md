@@ -33,11 +33,12 @@ Override with the `DEMO_*` variables in `.env.example`. In production mode rando
 
 | Command | What it does |
 |---|---|
-| `npm test` | 332 unit + API integration tests (engine, property-based invariants, two-factor and password reset, 5,000-holding scale + gzip, rules at/below/above thresholds, persistence, auth, import, reset, risk profile, nominees, email alerts, read-only GETs, tenant isolation, OpenAPI) |
+| `npm test` | 379 unit, component and API integration tests (engine, property-based invariants, two-factor, password reset, sessions, email verification, task queue, UI components in jsdom, 5,000-holding scale + gzip, rules at/below/above thresholds, persistence, auth, import, reset, risk profile, nominees, email alerts, read-only GETs, tenant isolation, OpenAPI) |
 | `npm run typecheck` | `tsc --noEmit` over server, shared engine, UI and tests |
 | `npm run lint` | Biome lint (correctness and suspicious-code rules; formatting is not enforced) |
 | `npm run build` | production UI bundle in `dist/web` |
 | `npm run test:e2e:auth` | Browser walkthrough of two-factor sign-in, recovery codes and password reset (uses the demo viewer; throwaway database only) |
+| `npm run test:visual` | Screenshot regression: 8 pages at desktop and phone width compared pixel by pixel with `tests/visual/baseline/`. Local only (baselines are macOS renderings); `-- --update` accepts new baselines. Start the throwaway server with `APP_AS_OF=2026-10-20` |
 | `npm run test:a11y` | axe-core (WCAG 2.1 A/AA) on all 18 pages in light and dark, at desktop and phone width. Read-only; 0 violations at the last run |
 | `npm run test:e2e` | Playwright/Chromium walkthrough against a running server (56 checks incl. mobile width, service worker and offline). It edits data, so point it at a throwaway database (see below) |
 | `npm run seed` | not needed — seeding is automatic on an empty database |

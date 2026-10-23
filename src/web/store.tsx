@@ -4,7 +4,7 @@ import type { ClientData } from "@shared/types";
 import type { Evaluation } from "@shared/evaluate";
 import type { AlertRow } from "../server/alerts";
 
-export interface AppUser { id: string; email: string; name: string; role: "admin" | "viewer" }
+export interface AppUser { id: string; email: string; name: string; role: "admin" | "viewer"; mfaSetupRequired?: boolean }
 export interface ClientSummary { id: string; name: string; kind: "live" | "case"; description: string | null; isDemo: boolean }
 export interface AppState { data: ClientData; evaluation: Evaluation; alerts: AlertRow[]; audit: Array<{ id: string; at: string; entity: string; action: string; summary: string; user: string | null }>; asOf: string; serverTime: string }
 export interface Toast { id: number; kind: "ok" | "err" | "info"; text: string }

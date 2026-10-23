@@ -17,6 +17,9 @@ const BODIES: Record<string, Json> = {
   "POST /api/auth/reset": obj({ token: { type: "string" }, password: { type: "string", minLength: 10 } }, ["token", "password"]),
   "POST /api/account/mfa/enable": obj({ code: { type: "string" } }, ["code"]),
   "POST /api/account/mfa/disable": obj({ password: { type: "string" }, code: { type: "string" } }, ["password", "code"]),
+  "POST /api/tasks": obj({ title: { type: "string", minLength: 2, maxLength: 140 }, clientId: { type: "string" }, alertId: { type: "string", description: "Optional: tie the task to one of the client's alerts" }, assigneeId: { type: "string" }, dueDate: { type: "string", format: "date" }, note: { type: "string", maxLength: 1000 } }, ["title", "clientId"]),
+  "PATCH /api/tasks/{id}": obj({ title: { type: "string" }, note: { type: "string" }, assigneeId: { type: "string" }, dueDate: { type: "string", format: "date" }, status: { enum: ["open", "in_progress", "done"] } }),
+  "POST /api/auth/verify-email": obj({ token: { type: "string" } }, ["token"]),
   "POST /api/account/password": obj({ current: { type: "string" }, next: { type: "string", minLength: 10 } }, ["current", "next"]),
   "POST /api/clients": obj({ name: { type: "string", minLength: 2, maxLength: 80 } }, ["name"]),
   "PUT /api/notifications/prefs": obj({ emailEnabled: { type: "boolean" }, minSeverity: { enum: ["info", "warning", "high", "critical"] } }, ["emailEnabled", "minSeverity"]),
@@ -49,6 +52,16 @@ const SUMMARY: Record<string, string> = {
   "POST /api/account/mfa/setup": "Start two-factor enrolment: returns the secret and an otpauth:// URI",
   "POST /api/account/mfa/enable": "Confirm enrolment with a code from the app; returns 8 single-use recovery codes (shown once)",
   "POST /api/account/mfa/disable": "Turn two-factor off (needs the password and a current code)",
+  "GET /api/tasks": "Task queue for your organisation (filters: status=active|open|in_progress|done, assignee=me|unassigned|<id>, client, alert), with counts and assignable people",
+  "GET /api/tasks/assignees": "People in your organisation a task can be assigned to",
+  "POST /api/tasks": "Create a task, optionally tied to an alert and assigned to a colleague",
+  "PATCH /api/tasks/{id}": "Edit, reassign or change the status of a task",
+  "DELETE /api/tasks/{id}": "Delete a task",
+  "POST /api/auth/verify-email": "Confirm an email address from the emailed token (single use, 48 hours)",
+  "GET /api/account/sessions": "Devices signed in to your account (this one is marked current)",
+  "DELETE /api/account/sessions/{sid}": "Sign one device out",
+  "POST /api/account/sessions/revoke-others": "Sign out every device except this one",
+  "POST /api/account/email/verify-request": "Email a confirmation link to the address on your account",
   "POST /api/account/password": "Change your password (needs the current one); other sessions are signed out",
   "POST /api/auth/logout": "Sign out", "GET /api/auth/me": "Current user, or null",
   "GET /api/clients": "Clients in your organisation", "POST /api/clients": "Create a client",
@@ -79,7 +92,7 @@ export function buildOpenApi(routes: RouteInfo[], version: string): Json {
       summary: SUMMARY[key] ?? CRUD(r.method, path) ?? key, tags: [path.split("/")[2] ?? "api"], parameters: params,
       responses: { "200": { description: "Success (JSON)" }, "401": { description: "Not signed in" }, "403": { description: "Read-only role, missing CSRF header, or operator-only route" }, "404": { description: "Not found. Also returned for a client in another organisation" }, "422": { description: "Validation failed: { error, details: [{ field, message }] }" } },
     };
-    if (!/^\/api\/(health|auth\/(login|forgot|reset|mfa\/verify))/.test(path)) op.security = [{ session: [] }];
+    if (!/^\/api\/(health|auth\/(login|forgot|reset|verify-email|mfa\/verify))/.test(path)) op.security = [{ session: [] }];
     if (BODIES[key]) op.requestBody = { required: true, content: { "application/json": { schema: BODIES[key] } } };
     paths[path] ??= {};
     paths[path][method] = op;

@@ -4,9 +4,12 @@ import { seedIfEmpty } from "./seed";
 import { mailerFromEnv, startDispatcher } from "./notify";
 import { startReconciler } from "./jobs";
 import { reconcileAll } from "./service";
+import { sealLegacySecrets } from "./secretbox";
 
 const db = openDb();
 const seeded = seedIfEmpty(db);
+const sealed = sealLegacySecrets(db); // two-factor seeds stored before encryption existed
+if (sealed) console.log(`Encrypted ${sealed} two-factor secret(s) at rest.`);
 reconcileAll(db); // bring alert history up to date before serving
 const mailer = await mailerFromEnv(db);
 const app = createApp(db, { mailer });

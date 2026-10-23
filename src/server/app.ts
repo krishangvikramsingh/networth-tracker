@@ -29,7 +29,8 @@ import { addNominee, loadEstate, removeNominee, setNomination, updateNominee } f
 import { dispatchNotifications, getPrefs, outboxMailer, outboxFor, recentNotifications, setPrefs, type Mailer } from "./notify";
 import { SEVERITY_ORDER } from "./alerts";
 import { buildOverview } from "./overview";
-import { changePassword, completeChallenge, createChallenge, disableMfa, enableMfa, mfaStatus, requestReset, resetPassword, startEnrolment } from "./mfa";
+import { createTask, deleteTask, listAssignees, listTasks, taskCounts, updateTask } from "./tasks";
+import { changePassword, completeChallenge, confirmEmail, createChallenge, disableMfa, enableMfa, isVerified, listSessions, mfaRequiredButMissing, mfaStatus, requestEmailVerification, requestReset, resetPassword, revokeOtherSessions, revokeSession, startEnrolment } from "./mfa";
 import { buildOpenApi, renderDocsHtml, type RouteInfo } from "./openapi";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
@@ -96,6 +97,8 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
     const m = db.prepare("SELECT COUNT(*) AS n FROM schema_migrations").get() as { n: number };
     res.json({ ok: true, time: nowISO(), migrations: m.n });
   });
+  const deviceOf = (req: Request) => ({ userAgent: req.get("user-agent") ?? undefined, ip: req.ip });
+  const baseUrlOf = (req: Request) => process.env.PUBLIC_URL || (prod ? "" : `${req.protocol}://${req.get("host")}`);
   const setSessionCookie = (res: Response, token: string) => res.cookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: prod, maxAge: 12 * 3600_000, path: "/" });
   app.post("/api/auth/login", wrap(async (req, res) => {
     const { email, password } = (req.body ?? {}) as { email?: string; password?: string };
@@ -108,24 +111,24 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
     loginSucceeded(db, key);
     // A user with two-factor on gets a short-lived challenge, not a session, until the second step is done.
     if (row.totp_enabled === 1) return void res.json({ mfaRequired: true, challenge: createChallenge(db, row.id) });
-    const token = createSession(db, row.id);
+    const token = createSession(db, row.id, deviceOf(req));
     setSessionCookie(res, token);
     audit(db, { clientId: null, userId: row.id, entity: "auth", action: "login", summary: `${row.email} signed in` });
-    res.json({ user: { id: row.id, email: row.email, name: row.name, role: row.role } });
+    res.json({ user: { id: row.id, email: row.email, name: row.name, role: row.role, mfaSetupRequired: mfaRequiredButMissing(db, row) } });
   }));
   app.post("/api/auth/mfa/verify", wrap(async (req, res) => {
     const { challenge, code } = (req.body ?? {}) as { challenge?: string; code?: string };
     if (!loginThrottle(db, `mfa:${req.ip}`)) throw new HttpError(429, "Too many attempts. Try again in a few minutes.");
-    const out = completeChallenge(db, String(challenge ?? ""), String(code ?? ""));
+    const out = completeChallenge(db, String(challenge ?? ""), String(code ?? ""), deviceOf(req));
     setSessionCookie(res, out.session);
-    res.json({ user: out.user });
+    res.json({ user: { ...out.user, mfaSetupRequired: false } });
   }));
   // Reset by email. The answer never says whether the address has an account.
   app.post("/api/auth/forgot", wrap(async (req, res) => {
     const email = String((req.body as { email?: unknown } | undefined)?.email ?? "");
     if (!loginThrottle(db, `forgot:${req.ip}`)) throw new HttpError(429, "Too many attempts. Try again in a few minutes.");
     // The link's host must not come from the request (a forged Host header would send the token to an attacker); production needs PUBLIC_URL.
-    const baseUrl = process.env.PUBLIC_URL || (prod ? "" : `${req.protocol}://${req.get("host")}`);
+    const baseUrl = baseUrlOf(req);
     if (baseUrl && email.includes("@")) await requestReset(db, email, mailer, baseUrl).catch((e) => console.error("reset email failed:", e instanceof Error ? e.message : e));
     else if (!baseUrl) console.error("Password reset requested but PUBLIC_URL is not set; no email sent.");
     res.json({ ok: true, message: "If that address has an account, a reset link is on its way. It works for 30 minutes." });
@@ -142,13 +145,33 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
     res.clearCookie(COOKIE, { path: "/" });
     res.json({ ok: true });
   });
-  app.get("/api/auth/me", (req, res) => res.json({ user: req.user ?? null }));
+  app.get("/api/auth/me", (req, res) => res.json({ user: req.user ? { ...req.user, mfaSetupRequired: mfaRequiredButMissing(db, req.user) } : null }));
+  app.post("/api/auth/verify-email", wrap(async (req, res) => {
+    if (!loginThrottle(db, `verify:${req.ip}`)) throw new HttpError(429, "Too many attempts. Try again in a few minutes.");
+    confirmEmail(db, String((req.body as { token?: unknown } | undefined)?.token ?? ""));
+    res.json({ ok: true });
+  }));
 
   // everything below needs a session
   app.use("/api", requireAuth);
+  // Optional policy: advisors must turn on two-factor before using anything but their account settings.
+  app.use("/api", (req, _res, next) => {
+    if (req.user && !/^\/(account|auth)\//.test(req.path) && mfaRequiredButMissing(db, req.user)) return next(new HttpError(403, "Advisors must turn on two-factor sign-in before continuing. Open Account security.", [{ field: "code", message: "mfa_required" }]));
+    next();
+  });
   const W = requireWrite;
   // Account security: every signed-in user, including read-only viewers, manages their own sign-in.
-  app.get("/api/account/security", (req, res) => res.json(mfaStatus(db, req.user!.id)));
+  const tokenOf = (req: Request) => parseCookies(req.headers.cookie)[COOKIE] ?? "";
+  app.get("/api/account/security", (req, res) => res.json({ ...mfaStatus(db, req.user!.id), email: req.user!.email, emailVerified: isVerified(db, req.user!.id), mfaPolicy: process.env.REQUIRE_MFA_FOR_ADMINS === "1" && req.user!.role === "admin" }));
+  app.get("/api/account/sessions", (req, res) => res.json({ sessions: listSessions(db, req.user!.id, tokenOf(req)) }));
+  app.post("/api/account/sessions/revoke-others", wrap((req, res) => res.json({ revoked: revokeOtherSessions(db, req.user!.id, tokenOf(req)) })));
+  app.delete("/api/account/sessions/:sid", wrap((req, res) => { revokeSession(db, req.user!.id, String(req.params.sid)); res.json({ ok: true }); }));
+  app.post("/api/account/email/verify-request", wrap(async (req, res) => {
+    const base = baseUrlOf(req);
+    if (!base) throw new HttpError(503, "PUBLIC_URL is not set, so no confirmation link can be sent.");
+    await requestEmailVerification(db, req.user!.id, mailer, base);
+    res.json({ ok: true });
+  }));
   app.post("/api/account/mfa/setup", wrap((req, res) => res.json(startEnrolment(db, req.user!.id))));
   app.post("/api/account/mfa/enable", wrap((req, res) => res.json({ recoveryCodes: enableMfa(db, req.user!.id, String((req.body as { code?: unknown } | undefined)?.code ?? "")), ...mfaStatus(db, req.user!.id) })));
   app.post("/api/account/mfa/disable", wrap((req, res) => { const b = (req.body ?? {}) as { password?: string; code?: string }; disableMfa(db, req.user!.id, String(b.password ?? ""), String(b.code ?? "")); res.json(mfaStatus(db, req.user!.id)); }));
@@ -162,6 +185,13 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   });
   // Shared reference data and the demo fixtures belong to the platform operator (the default tenant).
   const operatorOnly = (req: Request, _res: Response, next: NextFunction) => next(req.user?.tenantId === DEFAULT_TENANT ? undefined : new HttpError(403, "Only the platform operator can do this."));
+
+  // ---- advisor task queue (organisation-wide, not under :cid; each handler scopes to the caller's tenant) ------
+  app.get("/api/tasks", wrap((req, res) => res.json({ tasks: listTasks(db, req.user!, { status: req.query.status as string, assignee: req.query.assignee as string, clientId: req.query.client as string, alertId: req.query.alert as string }), counts: taskCounts(db, req.user!), assignees: listAssignees(db, req.user!) })));
+  app.get("/api/tasks/assignees", (req, res) => res.json({ assignees: listAssignees(db, req.user!) }));
+  app.post("/api/tasks", W, wrap((req, res) => res.status(201).json(createTask(db, req.user!, req.body))));
+  app.patch("/api/tasks/:id", W, wrap((req, res) => res.json(updateTask(db, req.user!, String(req.params.id), req.body))));
+  app.delete("/api/tasks/:id", W, wrap((req, res) => { deleteTask(db, req.user!, String(req.params.id)); res.json({ ok: true }); }));
 
   // ---- clients --------------------------------------------------------------------------------
   app.get("/api/clients", (req, res) => {
@@ -418,7 +448,7 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   const dist = path.join(ROOT, "dist", "web");
   if (fs.existsSync(dist)) {
     // the service worker and manifest must always be revalidated so a new release reaches installed copies
-    app.use(express.static(dist, { index: false, maxAge: "1h", setHeaders: (r, f) => { if (/(sw\.js|manifest\.webmanifest)$/.test(f)) r.setHeader("Cache-Control", "no-cache"); } }));
+    app.use(express.static(dist, { index: false, maxAge: "1h", setHeaders: (r, f) => { if (/(sw\.js|manifest\.webmanifest)$/.test(f)) r.setHeader("Cache-Control", "no-cache"); else if (/[\\/]assets[\\/]/.test(f)) r.setHeader("Cache-Control", "public, max-age=31536000, immutable"); /* file names carry a content hash */ } }));
     app.get(/^\/(?!api).*/, (_req, res) => res.sendFile(path.join(dist, "index.html")));
   }
 

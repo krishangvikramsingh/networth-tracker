@@ -7,7 +7,7 @@ Working document for continuing development with Claude Code. Each task has a ch
 ```bash
 cd networth-tracker
 npm install
-npm run typecheck && npm test        # must stay green (332 tests)
+npm run typecheck && npm test        # must stay green (379 tests)
 npm run build && npm run test:e2e    # e2e needs a running server: npm run serve (after build)
 ```
 
@@ -57,7 +57,8 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 ### 0.4 Security hardening (before any real data)
 - [x] **Multi-tenant authorisation (application level):** DONE with an exhaustive route sweep. Still open: Postgres row-level security as defence in depth.
 - [x] MFA (TOTP) with recovery codes, password reset by email, password change (`/security`; `tests/mfa.test.ts` 22 tests, mutation-checked; `npm run test:e2e:auth`).
-- [ ] Email verification, session list/revoke, mandatory-MFA policy for admins, encrypt TOTP secrets at rest, account lockout.
+- [x] Email verification, session list and revoke, mandatory-MFA policy for advisors (`REQUIRE_MFA_FOR_ADMINS`), TOTP secrets encrypted at rest (`tests/account.test.ts`, mutation-checked).
+- [ ] Per-account lockout after repeated failures (only per-address throttles exist), password breach check, key rotation for `DATA_ENCRYPTION_KEY`.
 - [ ] Remove default demo credentials outside development (`src/server/seed.ts`); fail startup in production if unset.
 - [ ] Global rate limiting; request size limits per route; stricter upload validation.
 - [ ] Encryption at rest (DB/volume) and a secrets manager; rotate session secrets.
@@ -66,8 +67,9 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 - **Done when:** two-tenant isolation tests pass and the pen test has no critical or high findings.
 
 ### 0.5 Quality
-- [x] Automated accessibility audit (axe-core, `npm run test:a11y`, in CI); findings fixed; 0 violations against WCAG 2.1 AA. Lighthouse not run.
-- [ ] Component tests for forms (`src/web/forms.tsx`) and tables (`src/web/ui.tsx`); visual regression screenshots for key pages.
+- [x] Automated accessibility audit (axe-core, `npm run test:a11y`, in CI); findings fixed; 0 violations against WCAG 2.1 AA.
+- [x] Lighthouse run on the signed-in app: accessibility, best practices and SEO 100; performance 99 desktop, 82 to 83 on a simulated slow phone.
+- [x] Component tests for tables, dialogs, fields, money input, KPI tiles (`tests/components/ui.test.tsx`, jsdom, mutation-checked) and visual regression screenshots (`npm run test:visual`, local). Entity forms (`src/web/forms.tsx`) are not yet component-tested.
 - [x] Property-based tests for the engine (`tests/properties.test.ts`, fast-check, 200 random portfolios per property): gross assets is the plain sum regardless of order; allocation shares sum to 100%; splitting an aggregate never changes gross; net worth = gross − liabilities; not-assessed stays null; evaluation is deterministic. Mutation-checked.
 - [x] Load test with 5,000 holdings (`scripts/load.ts`, `tests/scale.test.ts`): evaluate p95 5.5 ms; the whole `/state` request p95 about 100 ms (budget 300 ms), so no caching is needed. It found a 6.4 MB payload, so responses are now gzip-compressed. Pagination of the state payload is still open for much larger books.
 
@@ -115,7 +117,7 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 - [ ] Indian financial-year views (April to March) and timezone-correct dates (IST).
 
 ### 2.2 Advisor product
-- [x] Advisor console (first version): `/clients` with search, portfolio-level view and attention queue. Still open: task queue with assignment, bulk actions.
+- [x] Advisor console (first version): `/clients` with search, portfolio-level view and attention queue. Task queue with assignment, due dates, status and alert links shipped (`/tasks`, `tests/tasks.test.ts`). Still open: bulk actions, task comments, notifications on assignment.
 - [ ] Client invitations; household/family grouping. (Nominee registry and per-asset nominations done: `/nominees`.)
 - [ ] Roles beyond admin/viewer (advisor, analyst, client, auditor).
 - [ ] White-label branded reports; server-side PDF generation (headless Chromium) with scheduled delivery.

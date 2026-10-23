@@ -54,7 +54,7 @@ export async function refreshProvider(db: DB, providerId: string, symbols: strin
   } catch (e: any) {
     const msg = String(e?.message ?? e).slice(0, 300);
     db.prepare("INSERT INTO market_refresh_log (id, provider, at, ok, message, count) VALUES (?,?,?,?,?,?)").run(uid("mrl"), providerId, nowISO(), 0, msg, 0);
-    return { ok: false, message: `${msg} — previous valid values were kept.`, stored: 0, rejected: [] };
+    return { ok: false, message: `${msg}, previous valid values were kept.`, stored: 0, rejected: [] };
   }
 }
 
