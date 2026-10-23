@@ -32,7 +32,7 @@ export function ClientsPage() {
     <>
       <PageHead title="All clients" subtitle="Every client in your organisation at a glance. Click a row to open that client." />
       <div className="stack">
-        <div className="grid g3">
+        <div className="kpi-group">
           <Kpi label="Clients" value={o.totals.liveClients} sub={`${o.totals.caseStudies} illustrative case stud${o.totals.caseStudies === 1 ? "y" : "ies"} not counted`} />
           <Kpi label="Total gross assets (clients)" value={o.totals.liveGrossAssets == null ? undefined : formatCompact(o.totals.liveGrossAssets)} await={o.totals.liveGrossAssets == null} sub="Case studies excluded" />
           <Kpi label="Needing attention" value={o.attention.filter((a) => a.severity === "critical" || a.severity === "high").length} sub="critical or high alerts open" tone={o.attention.some((a) => a.severity === "critical") ? "crit" : ""} />

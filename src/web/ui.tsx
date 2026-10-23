@@ -42,7 +42,7 @@ export function Kpi({ label, value, sub, await: awaiting, onClick, badge, tone }
   const body = (
     <>
       <div className="lbl"><span>{label}</span>{badge}</div>
-      <div className={`val ${awaiting ? "await" : ""}`} style={tone === "crit" ? { color: "var(--crit)" } : tone === "good" ? { color: "var(--good)" } : undefined}>{awaiting ? "Awaiting data" : value}</div>
+      <div className={`val ${awaiting ? "await" : ""}`} style={awaiting ? undefined : tone === "crit" ? { color: "var(--crit)" } : tone === "good" ? { color: "var(--good)" } : undefined}>{awaiting ? "Awaiting data" : value}</div>
       {sub && <div className="sub">{sub}</div>}
     </>
   );

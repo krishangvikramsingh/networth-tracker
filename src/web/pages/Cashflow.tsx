@@ -48,7 +48,7 @@ export function CashflowPage() {
 
       {tab === "plan" && (
         <div className="stack">
-          <div className="grid g4">
+          <div className="kpi-group">
             <Kpi label="Monthly gross inflows" await={!cash.hasIncome} value={formatCompact(cash.monthlyIncome)} sub={cash.hasUnscheduledReceipts ? "Includes annual receipts at monthly equivalent (analysis only)" : "Monthly equivalents"} />
             <Kpi label="Monthly outflows" await={cash.monthlyOutflows === 0} value={formatCompact(cash.monthlyOutflows)} sub={`${formatCompact(cash.annualOutflows)} per year (+ one-offs)`} />
             <Kpi label="Net monthly surplus / deficit" await={!cash.hasIncome && cash.monthlyOutflows === 0} value={formatCompact(cash.monthlySurplus)} tone={cash.monthlySurplus < 0 ? "crit" : "good"} sub={`Annualised ${formatCompact(cash.annualSurplus)}${cash.incomeAssessed ? "" : " · provisional"}`} badge={!cash.incomeAssessed ? <Badge tone="warn">provisional</Badge> : undefined} />
@@ -75,7 +75,7 @@ export function CashflowPage() {
 
       {tab === "forecast" && (
         <div className="stack">
-          <div className="grid g3">
+          <div className="kpi-group">
             <Kpi label="Scheduled inflows (12 mo)" value={formatCompact(fc.totalInflow)} />
             <Kpi label="Scheduled outflows (12 mo)" value={formatCompact(fc.totalOutflow)} />
             <Kpi label="Opening bank balance" await={fc.openingBalance == null} value={formatCompact(fc.openingBalance)} sub={fc.openingBalance == null ? "Add bank/cash balances to forecast a running balance" : "From bank & cash holdings"} />

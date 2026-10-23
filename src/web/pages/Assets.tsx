@@ -96,7 +96,7 @@ function AssetsTab({ onEdit, onAdd, onDetail }: { onEdit: (h: Holding) => void; 
     { key: "x", label: "", render: (h) => canWrite ? (
       <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
         <button type="button" className="btn sm" onClick={() => onEdit(h)} aria-label={`Edit ${h.name}`}><Icon d={ICONS.edit} size={13} /></button>
-        {!h.parentId && (h.isAggregate || h.instrumentType === "mutual_fund_aggregate" || h.instrumentType === "pms" || h.instrumentType === "aif") && <button type="button" className="btn sm" onClick={() => onAdd({ parentId: h.id }, `Add underlying position of ${h.name}`)} title="Split this aggregate into underlying schemes / securities"><Icon d={ICONS.plus} size={13} />Underlying</button>}
+        {!h.parentId && (h.isAggregate || h.instrumentType === "mutual_fund_aggregate" || h.instrumentType === "pms" || h.instrumentType === "aif") && <button type="button" className="btn sm" onClick={() => onAdd({ parentId: h.id }, `Add underlying position of ${h.name}`)} title="Split this aggregate into underlying schemes / securities" aria-label={`Add underlying position of ${h.name}`}><Icon d={ICONS.plus} size={13} /></button>}
         <button type="button" className="btn sm" onClick={() => { if (confirm(`Archive "${h.name}"? It can be restored from the Archived tab.`)) run(() => api.del(`/api/clients/${clientId}/holdings/${h.id}`), "Archived"); }} aria-label={`Archive ${h.name}`}><Icon d={ICONS.trash} size={13} /></button>
       </div>) : null },
   ];

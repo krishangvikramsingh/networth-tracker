@@ -72,7 +72,7 @@ export function PortfolioPage() {
           {(fc || fi || fa || fiss || from || to) && <button type="button" className="btn sm" onClick={() => { setFc(""); setFi(""); setFa(""); setFiss(""); setFrom(""); setTo(""); }}>Clear</button>}
         </div></Card>
 
-        <div className="grid g4">
+        <div className="kpi-group">
           <Kpi label="Investment market value" value={formatCompact(total)} sub={`${lines.length} positions · excludes property, cash & pension`} />
           <Kpi label="Invested capital" await={invested.length === 0} value={formatCompact(inv)} sub={invested.length < lines.length ? `Recorded for ${invested.length} of ${lines.length} positions` : "All positions"} />
           <Kpi label="Absolute return" await={invested.length === 0} value={`${formatCompact(invVal - inv)} (${formatPct(pct(invVal - inv, inv))})`} tone={invVal >= inv ? "good" : "crit"} sub="Value − cost on positions with cost; not time-weighted" />

@@ -27,7 +27,7 @@ export function AlertsPage() {
   return (
     <>
       <PageHead title="Alerts & recommendations" subtitle="One persistent inbox. An alert is created when a condition starts, updated when it changes, and resolved when it clears — refreshing never duplicates it." />
-      <div className="grid g4" style={{ marginBottom: 16 }}>
+      <div className="kpi-group" style={{ marginBottom: 16 }}>
         {(["critical", "high", "warning", "info"] as const).map((s) => <div key={s} className="kpi"><div className="lbl"><SevBadge s={s} /></div><div className="val num">{count(s)}</div><div className="sub">open {s === "info" ? "notices" : s}</div></div>)}
       </div>
       <Tabs<Tab> value={tab} onChange={(t) => { setTab(t); setSp((p) => { p.delete("open"); p.set("tab", t); return p; }); }} tabs={[{ id: "open", label: "Open", count: groups.open.length }, { id: "acknowledged", label: "Acknowledged", count: groups.acknowledged.length }, { id: "data", label: "Data notices", count: groups.data.length }, { id: "resolved", label: "Resolved", count: groups.resolved.length }]} />

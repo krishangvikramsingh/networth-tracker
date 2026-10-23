@@ -297,3 +297,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 .codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius); font-size: 14px; letter-spacing: .04em; user-select: all; }
 @media (prefers-reduced-motion: reduce) { .auth-step { animation: none; } }
 .topbar .btn, .topbar .small { white-space: nowrap; }
+
+/* polish: native controls keep their natural size (a global input width broke radios), tabs scroll instead of wrapping on phones */
+input[type="radio"], input[type="checkbox"] { width: auto; padding: 0; flex: none; margin: 0; }
+.check { align-items: flex-start; line-height: 1.35; } .check input { margin-top: 2px; }
+.check:has(input[type="radio"]) { padding: 8px 10px; border-radius: 6px; transition: background-color 120ms ease; cursor: pointer; }
+.check:has(input[type="radio"]:checked) { background: var(--accent-soft); }
+@media (hover: hover) and (pointer: fine) { .check:has(input[type="radio"]):hover { background: var(--surface-2); } .check:has(input[type="radio"]:checked):hover { background: var(--accent-soft); } }
+.tbl td .btn { white-space: nowrap; }
+@media (max-width: 860px) {
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; flex: none; }
+}
+.tbl th, .tbl td { padding-left: 8px; padding-right: 8px; }
+.tbl td:last-child:has(.btn) { white-space: nowrap; }
