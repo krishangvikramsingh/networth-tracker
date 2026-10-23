@@ -1,9 +1,9 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import type { DB } from "./db";
-import { nowISO, uid } from "./db";
+import { DEFAULT_TENANT, nowISO, tx, uid } from "./db";
 
-export interface AuthUser { id: string; email: string; name: string; role: "admin" | "viewer" }
+export interface AuthUser { id: string; email: string; name: string; role: "admin" | "viewer"; tenantId: string }
 declare module "express-serve-static-core" { interface Request { user?: AuthUser } }
 
 export const COOKIE = "nw_session";
@@ -23,10 +23,11 @@ export function verifyPassword(pw: string, stored: string): boolean {
 }
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
-export function createUser(db: DB, email: string, name: string, role: "admin" | "viewer", password: string): AuthUser {
+export function createUser(db: DB, email: string, name: string, role: "admin" | "viewer", password: string, tenantId = DEFAULT_TENANT): AuthUser {
+  if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(tenantId)) throw new Error("Tenant id must be 2-40 characters: lowercase letters, digits, - or _.");
   const id = uid("usr");
-  db.prepare("INSERT INTO users (id, email, name, role, password_hash, created_at) VALUES (?,?,?,?,?,?)").run(id, email.toLowerCase(), name, role, hashPassword(password), nowISO());
-  return { id, email: email.toLowerCase(), name, role };
+  db.prepare("INSERT INTO users (id, email, name, role, password_hash, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)").run(id, email.toLowerCase(), name, role, hashPassword(password), nowISO(), tenantId);
+  return { id, email: email.toLowerCase(), name, role, tenantId };
 }
 export function createSession(db: DB, userId: string): string {
   const token = randomBytes(32).toString("hex");
@@ -46,10 +47,10 @@ export function parseCookies(header: string | undefined): Record<string, string>
 }
 export function userFromToken(db: DB, token: string | undefined): AuthUser | null {
   if (!token) return null;
-  const row = db.prepare(`SELECT u.id, u.email, u.name, u.role, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`).get(sha(token)) as any;
+  const row = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.tenant_id, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`).get(sha(token)) as any;
   if (!row) return null;
   if (row.expires_at < nowISO()) { db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha(token)); return null; }
-  return { id: row.id, email: row.email, name: row.name, role: row.role };
+  return { id: row.id, email: row.email, name: row.name, role: row.role, tenantId: row.tenant_id };
 }
 
 /** Sets req.user from the session cookie. */
@@ -74,12 +75,16 @@ export function csrfGuard(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-const attempts = new Map<string, { n: number; first: number }>();
-export function loginThrottle(key: string): boolean {
-  const now = Date.now(), e = attempts.get(key);
-  if (!e || now - e.first > 15 * 60_000) { attempts.set(key, { n: 1, first: now }); return true; }
-  e.n++;
-  return e.n <= 8;
+const THROTTLE_WINDOW_MS = 15 * 60_000, THROTTLE_MAX = 8;
+/** Count a login attempt; false means "too many, refuse". State is in the database so it survives restarts and is shared by instances. */
+export function loginThrottle(db: DB, key: string, now = Date.now()): boolean {
+  return tx(db, () => {
+    db.prepare("DELETE FROM login_attempts WHERE window_start < ?").run(now - THROTTLE_WINDOW_MS);
+    const e = db.prepare("SELECT attempts FROM login_attempts WHERE key = ?").get(key) as { attempts: number } | undefined;
+    if (!e) { db.prepare("INSERT INTO login_attempts (key, attempts, window_start) VALUES (?,1,?)").run(key, now); return true; }
+    db.prepare("UPDATE login_attempts SET attempts = attempts + 1 WHERE key = ?").run(key);
+    return e.attempts + 1 <= THROTTLE_MAX;
+  });
 }
-export function loginSucceeded(key: string) { attempts.delete(key); }
-export function resetThrottle() { attempts.clear(); }
+export function loginSucceeded(db: DB, key: string) { db.prepare("DELETE FROM login_attempts WHERE key = ?").run(key); }
+export function resetThrottle(db: DB) { db.prepare("DELETE FROM login_attempts").run(); }

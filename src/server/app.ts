@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import type { DB } from "./db";
-import { nowISO, tx, uid } from "./db";
+import { DEFAULT_TENANT, nowISO, tx, uid } from "./db";
 import {
   COOKIE, createSession, csrfGuard, destroySession, loginSucceeded, loginThrottle, parseCookies, requireAuth, requireWrite, sessionMiddleware, verifyPassword,
 } from "./auth";
@@ -27,6 +27,8 @@ import { applyProfileTargets, listAssessments, recordAssessment } from "./risk";
 import { addNominee, loadEstate, removeNominee, setNomination, updateNominee } from "./estate";
 import { dispatchNotifications, getPrefs, outboxMailer, outboxFor, recentNotifications, setPrefs, type Mailer } from "./notify";
 import { SEVERITY_ORDER } from "./alerts";
+import { buildOverview } from "./overview";
+import { buildOpenApi, renderDocsHtml, type RouteInfo } from "./openapi";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 
@@ -34,11 +36,15 @@ const wrap = (fn: (req: Request, res: Response) => unknown | Promise<unknown>) =
   Promise.resolve(fn(req, res)).catch(next);
 };
 const param = (req: Request, k: string): string => String(req.params[k] ?? "");
+/** Burn the same time a real password check takes, so response timing does not reveal which emails exist. */
+const spendHashingTime = (): false => { verifyPassword("x", "scrypt$00$00"); return false; };
 
 export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   const mailer = opts.mailer ?? outboxMailer(db);
   const app = express();
   app.disable("x-powered-by");
+  // Behind a reverse proxy set TRUST_PROXY (e.g. "1") so req.ip, and with it the login throttle, sees the real client address.
+  if (process.env.TRUST_PROXY) app.set("trust proxy", /^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY);
   const prod = process.env.NODE_ENV === "production";
 
   app.use((req, res, next) => {
@@ -62,19 +68,24 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   app.use(sessionMiddleware(db));
   app.use("/api", csrfGuard);
 
-  // idempotency (duplicate-submit protection) for create endpoints
-  const idem = new Map<string, { at: number; status: number; body: unknown }>();
+  // idempotency (duplicate-submit protection) for create endpoints. Stored in the database so a retry after a restart, or on
+  // another instance, still replays the original answer. The lookup, the work and the store share one transaction.
+  const IDEM_TTL_MS = 10 * 60_000;
   const withIdem = (req: Request, res: Response, fn: () => { status: number; body: unknown }) => {
     const k = req.header("Idempotency-Key");
     const key = k && req.user ? `${req.user.id}:${req.method}:${req.path}:${k}` : null;
-    if (key) {
-      for (const [kk, v] of idem) if (Date.now() - v.at > 10 * 60_000) idem.delete(kk);
-      const hit = idem.get(key);
-      if (hit) { res.setHeader("Idempotent-Replay", "true"); return void res.status(hit.status).json(hit.body); }
-    }
-    const r = fn();
-    if (key) idem.set(key, { at: Date.now(), ...r });
-    res.status(r.status).json(r.body);
+    const out = tx(db, () => {
+      if (key) {
+        db.prepare("DELETE FROM idempotency_keys WHERE created_at < ?").run(Date.now() - IDEM_TTL_MS);
+        const hit = db.prepare("SELECT status, body FROM idempotency_keys WHERE key = ?").get(key) as { status: number; body: string } | undefined;
+        if (hit) return { replay: true, status: hit.status, body: JSON.parse(hit.body) as unknown };
+      }
+      const r = fn();
+      if (key) db.prepare("INSERT INTO idempotency_keys (key, status, body, created_at) VALUES (?,?,?,?)").run(key, r.status, JSON.stringify(r.body), Date.now());
+      return { replay: false, ...r };
+    });
+    if (out.replay) res.setHeader("Idempotent-Replay", "true");
+    res.status(out.status).json(out.body);
   };
 
   // ---- public ---------------------------------------------------------------------------------
@@ -85,12 +96,12 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   app.post("/api/auth/login", wrap(async (req, res) => {
     const { email, password } = (req.body ?? {}) as { email?: string; password?: string };
     const key = `${req.ip}:${String(email ?? "").toLowerCase()}`;
-    if (!loginThrottle(key)) throw new HttpError(429, "Too many attempts. Try again in a few minutes.");
+    if (!loginThrottle(db, key)) throw new HttpError(429, "Too many attempts. Try again in a few minutes.");
     const row = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email ?? "").toLowerCase()) as any;
     // verify even when the user is unknown so timing does not reveal which emails exist
-    const ok = row ? verifyPassword(String(password ?? ""), row.password_hash) : (verifyPassword("x", "scrypt$00$00"), false);
+    const ok = row ? verifyPassword(String(password ?? ""), row.password_hash) : spendHashingTime();
     if (!row || !ok) throw new HttpError(401, "Incorrect email or password.");
-    loginSucceeded(key);
+    loginSucceeded(db, key);
     const token = createSession(db, row.id);
     res.cookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: prod, maxAge: 12 * 3600_000, path: "/" });
     audit(db, { clientId: null, userId: row.id, entity: "auth", action: "login", summary: `${row.email} signed in` });
@@ -107,10 +118,19 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   // everything below needs a session
   app.use("/api", requireAuth);
   const W = requireWrite;
+  // Tenant isolation, enforced in ONE place: every route with a :cid runs this first, so a new client-scoped route cannot forget it.
+  // A client that belongs to another tenant answers exactly like one that does not exist, so ids cannot be probed.
+  app.param("cid", (req, _res, next, cid) => {
+    const row = db.prepare("SELECT tenant_id FROM clients WHERE id = ?").get(String(cid)) as { tenant_id: string } | undefined;
+    if (!req.user || !row || row.tenant_id !== req.user.tenantId) return next(new HttpError(404, "Client not found."));
+    next();
+  });
+  // Shared reference data and the demo fixtures belong to the platform operator (the default tenant).
+  const operatorOnly = (req: Request, _res: Response, next: NextFunction) => next(req.user?.tenantId === DEFAULT_TENANT ? undefined : new HttpError(403, "Only the platform operator can do this."));
 
   // ---- clients --------------------------------------------------------------------------------
-  app.get("/api/clients", (_req, res) => {
-    const rows = db.prepare("SELECT id, name, kind, description, is_demo FROM clients ORDER BY (kind='live') DESC, rowid").all() as any[];
+  app.get("/api/clients", (req, res) => {
+    const rows = db.prepare("SELECT id, name, kind, description, is_demo FROM clients WHERE tenant_id = ? ORDER BY (kind='live') DESC, rowid").all(req.user!.tenantId) as any[];
     res.json({ clients: rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, description: r.description, isDemo: r.is_demo === 1 })) });
   });
   app.post("/api/clients", W, wrap((req, res) => {
@@ -118,13 +138,16 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
     if (name.length < 2 || name.length > 80) throw new HttpError(422, "Enter a client name (2–80 characters).");
     const id = uid("client");
     tx(db, () => {
-      db.prepare("INSERT INTO clients (id, name, kind, description, is_demo, created_at) VALUES (?,?,?,?,0,?)").run(id, name, "live", "Blank client created in the app.", nowISO());
+      db.prepare("INSERT INTO clients (id, name, kind, description, is_demo, created_at, tenant_id) VALUES (?,?,?,?,0,?,?)").run(id, name, "live", "Blank client created in the app.", nowISO(), req.user!.tenantId);
       db.prepare("INSERT INTO client_settings (client_id, json, updated_at) VALUES (?,?,?)").run(id, JSON.stringify(defaultSettings("live")), nowISO());
       for (const r of defaultRules()) db.prepare("INSERT INTO rules (client_id, key, enabled, value, unit, severity, params) VALUES (?,?,?,?,?,?,?)").run(id, r.key, r.enabled ? 1 : 0, r.value, r.unit, r.severity, JSON.stringify(r.params));
       audit(db, { clientId: id, userId: req.user!.id, entity: "clients", entityId: id, action: "create", summary: `Created client "${name}"` });
     });
+    refresh(db, id); // state reads no longer reconcile, so seed the alert history now
     res.status(201).json({ id });
   }));
+
+  app.get("/api/overview", (req, res) => res.json(buildOverview(db, req.user!.tenantId)));
 
   app.get("/api/clients/:cid/state", wrap((req, res) => {
     const s = buildState(db, param(req, "cid"));
@@ -216,14 +239,14 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
 
   // nominees and nominations
   app.get("/api/clients/:cid/estate", wrap((req, res) => res.json(loadEstate(db, param(req, "cid")))));
-  app.post("/api/clients/:cid/nominees", W, wrap((req, res) => res.status(201).json({ nominee: addNominee(db, param(req, "cid"), req.body, req.user) })));
-  app.patch("/api/clients/:cid/nominees/:id", W, wrap((req, res) => res.json({ nominee: updateNominee(db, param(req, "cid"), param(req, "id"), req.body ?? {}, req.user) })));
-  app.delete("/api/clients/:cid/nominees/:id", W, wrap((req, res) => { removeNominee(db, param(req, "cid"), param(req, "id"), req.user); res.json({ ok: true }); }));
-  app.put("/api/clients/:cid/nominations", W, wrap((req, res) => { setNomination(db, param(req, "cid"), req.body, req.user); res.json(loadEstate(db, param(req, "cid"))); }));
+  app.post("/api/clients/:cid/nominees", W, wrap((req, res) => { const nominee = addNominee(db, param(req, "cid"), req.body, req.user); refresh(db, param(req, "cid")); res.status(201).json({ nominee }); }));
+  app.patch("/api/clients/:cid/nominees/:id", W, wrap((req, res) => { const nominee = updateNominee(db, param(req, "cid"), param(req, "id"), req.body ?? {}, req.user); refresh(db, param(req, "cid")); res.json({ nominee }); }));
+  app.delete("/api/clients/:cid/nominees/:id", W, wrap((req, res) => { removeNominee(db, param(req, "cid"), param(req, "id"), req.user); refresh(db, param(req, "cid")); res.json({ ok: true }); }));
+  app.put("/api/clients/:cid/nominations", W, wrap((req, res) => { setNomination(db, param(req, "cid"), req.body, req.user); refresh(db, param(req, "cid")); res.json(loadEstate(db, param(req, "cid"))); }));
 
   // email notifications (preferences are per user, so a read-only viewer may manage their own)
   app.get("/api/notifications", wrap((req, res) => res.json({
-    prefs: getPrefs(db, req.user!.id), mode: mailer.mode, email: req.user!.email, log: recentNotifications(db), outbox: mailer.mode === "outbox" ? outboxFor(db, req.user!.email) : [],
+    prefs: getPrefs(db, req.user!.id), mode: mailer.mode, email: req.user!.email, log: recentNotifications(db, 25, req.user!.tenantId), outbox: mailer.mode === "outbox" ? outboxFor(db, req.user!.email) : [],
   })));
   app.put("/api/notifications/prefs", wrap((req, res) => {
     const b = req.body ?? {};
@@ -316,13 +339,13 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
 
   // ---- market data ----------------------------------------------------------------------------
   app.get("/api/market/status", (_req, res) => res.json(marketStatus(db)));
-  app.post("/api/market/refresh", W, wrap(async (req, res) => {
+  app.post("/api/market/refresh", W, operatorOnly, wrap(async (req, res) => {
     const symbols = Array.isArray(req.body?.symbols) ? req.body.symbols.map(String).slice(0, 200) : [];
     res.json(await refreshProvider(db, String(req.body?.provider ?? "demo"), symbols));
   }));
-  app.post("/api/market/manual", W, wrap((req, res) => {
+  app.post("/api/market/manual", W, operatorOnly, wrap((req, res) => {
     if (typeof req.body !== "string") throw new HttpError(415, "Send CSV as text/csv.");
-    let obs; try { obs = parseManualCsv(req.body); } catch (e: any) { throw new HttpError(422, e.message); }
+    let obs: ReturnType<typeof parseManualCsv>; try { obs = parseManualCsv(req.body); } catch (e: any) { throw new HttpError(422, e.message); }
     res.json(storeObservations(db, obs));
   }));
   app.get("/api/clients/:cid/market/proposals", wrap((req, res) => res.json({ proposals: proposeValuations(db, param(req, "cid"), req.query.includeManual === "1") })));
@@ -343,12 +366,17 @@ export function createApp(db: DB, opts: { mailer?: Mailer } = {}) {
   }));
 
   // ---- demo -----------------------------------------------------------------------------------
-  app.post("/api/demo/reset", W, wrap((req, res) => {
+  app.post("/api/demo/reset", W, operatorOnly, wrap((req, res) => {
     const ids = resetDemo(db, req.body?.clientId);
     for (const id of ids) refresh(db, id);
     audit(db, { clientId: null, userId: req.user!.id, entity: "demo", action: "reset", summary: `Demo data reset for ${ids.join(", ")}` });
     res.json({ reset: ids });
   }));
+  // API reference generated from the live route table and the zod schemas, so it cannot drift from the code
+  const apiRoutes = (): RouteInfo[] => (((app as any).router ?? (app as any)._router).stack as any[])
+    .filter((l) => l.route && typeof l.route.path === "string" && l.route.path.startsWith("/api")).flatMap((l) => Object.keys(l.route.methods).map((m) => ({ method: m.toUpperCase(), path: l.route.path as string })));
+  app.get("/api/docs/openapi.json", (_req, res) => res.json(buildOpenApi(apiRoutes(), "1.0.0")));
+  app.get("/api/docs", (_req, res) => res.type("html").send(renderDocsHtml(buildOpenApi(apiRoutes(), "1.0.0"))));
   app.get("/api/meta", (_req, res) => res.json({ asOf: asOfDate(), migrations: fs.readdirSync(MIGRATIONS_DIR).length, version: "1.0.0" }));
 
   // ---- static SPA -----------------------------------------------------------------------------

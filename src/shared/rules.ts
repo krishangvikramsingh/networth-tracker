@@ -6,6 +6,7 @@ import type { PortfolioResult, AllocationRow } from "./portfolio";
 import type { NetWorthResult } from "./networth";
 import type { CashflowSummary } from "./cashflow";
 import { projectGoal } from "./goals";
+import { nominationCoverage } from "./estate";
 
 export type RuleState = "ok" | "triggered" | "possible" | "not_evaluable" | "disabled";
 export type FindingKind = "breach" | "possible" | "data_gap";
@@ -97,6 +98,10 @@ export const RULE_DEFS: RuleDef[] = [
   { key: "health_score_drop", name: "Financial-health score deterioration", group: "additional", description: "Provisional health score fell versus the previous assessment.",
     calc: "previous score − current score.", trigger: "drop > threshold points.", response: "Open the score breakdown to see which component declined.",
     defaults: { enabled: true, value: 10, unit: "points", severity: "warning", params: {} }, valueMin: 1, valueMax: 100 },
+  { key: "nomination_gap", name: "Nomination gaps", group: "additional", description: "Too little of the portfolio is recorded as fully nominated (nominee shares totalling 100%).",
+    calc: "value of top-level holdings whose nominee shares total exactly 100% ÷ value of all top-level holdings × 100. Insurance cover is listed on the Nominees page but not counted here.",
+    trigger: "Coverage % < threshold (exactly at the threshold is fine). With no nominee information recorded at all the rule shows Awaiting data, never 0%.", response: "Record the nominee on each account, or add the missing shares on the Nominees page. A nominee is not a substitute for a will.",
+    defaults: { enabled: true, value: 100, unit: "%", severity: "info", params: {} }, valueMin: 0, valueMax: 100 },
 ];
 
 export const RULE_DEF_BY_KEY = Object.fromEntries(RULE_DEFS.map((r) => [r.key, r])) as Record<RuleKey, RuleDef>;
@@ -365,14 +370,14 @@ const EVAL: Record<RuleKey, Evaluator> = {
     return finish("ok", "No premiums due in the window.", null);
   },
 
-  missing_valuation(cfg, c, def) {
+  missing_valuation(_cfg, c, def) {
     const m = c.portfolio.valuation.missingDate;
     if (!m.length) return finish("ok", "All holdings have valuation dates.", null);
     return finish("triggered", `${m.length} holding(s) without a valuation date.`, `${m.length}`, [{ fingerprint: `${def.key}:all`, kind: "breach", subject: "Valuation dates", currentLabel: `${m.length} holdings`, thresholdLabel: "any missing", provisional: false,
       why: `Values for ${m.map((x) => x.name).join(", ")} have no 'as-of' date, so freshness cannot be judged.`, action: "Enter the valuation date for each holding.", records: m.map((x) => ({ type: "holding" as const, id: x.sourceId, name: x.name })) }]);
   },
 
-  unclassified_holdings(cfg, c, def) {
+  unclassified_holdings(_cfg, c, def) {
     const unresolved = c.portfolio.unresolved.lines;
     if (!unresolved.length) return finish("ok", "All holdings are classified.", null);
     return finish("triggered", `${formatCompact(c.portfolio.unresolved.value)} unclassified.`, formatCompact(c.portfolio.unresolved.value), [{ fingerprint: `${def.key}:unresolved`, kind: "breach", subject: "Unclassified holdings", currentLabel: `${formatCompact(c.portfolio.unresolved.value)} (${formatPct(c.portfolio.unresolved.pctOfGross)} of gross)`, thresholdLabel: "any unresolved", provisional: false,
@@ -386,12 +391,25 @@ const EVAL: Record<RuleKey, Evaluator> = {
       why: `Valuations older than ${cfg.value} days: ${s.map((x) => `${x.name} (${x.valuationDate})`).join(", ")}.`, action: "Refresh market values or enter updated statements.", records: s.map((x) => ({ type: "holding" as const, id: x.sourceId, name: x.name })) }]);
   },
 
-  goal_shortfall(cfg, c, def) {
+  goal_shortfall(_cfg, c, def) {
     const goals = c.data.goals.filter((g) => !g.archived).map((g) => projectGoal(g, c.asOf)).filter((g) => !g.onTrack && !g.overdue);
     if (!goals.length) return finish("ok", c.data.goals.length ? "Goals are on track." : "No goals set.", null);
     return finish("triggered", `${goals.length} goal(s) projected to fall short.`, `${goals.length}`, goals.map((g) => ({ fingerprint: `${def.key}:${g.goal.id}`, kind: "breach" as const, subject: g.goal.name, currentLabel: `short by ${formatCompact(g.projectedGap)}`, thresholdLabel: "projection < target", provisional: false,
       why: `${g.goal.name}: projected ${formatCompact(g.projectedValue)} vs target ${formatCompact(g.goal.targetAmount)} by ${g.goal.targetDate}. ${g.assumption}`,
       action: g.requiredMonthly != null ? `About ${formatCompact(g.requiredMonthly)}/month would be needed (vs ${formatCompact(g.goal.monthlyContribution)} planned).` : "Revise the target date or amount.", records: [{ type: "goal" as const, id: g.goal.id, name: g.goal.name }] })));
+  },
+
+  nomination_gap(cfg, c, def) {
+    const d = c.data;
+    if (d.nominees.length === 0 && d.nominations.length === 0)
+      return finish("not_evaluable", "No nominee information recorded.", null, [gap(def, "nominees", "No nominees or nominations have been recorded, so nomination coverage cannot be assessed. This does not mean none exist.", "Add nominees and record who is nominated on each account on the Nominees page.")]);
+    const cov = nominationCoverage(d.holdings, d.policies, d.nominees, d.nominations);
+    if (cov.coveredPct == null) return finish("not_evaluable", "No holdings to measure.", null);
+    if (cov.coveredPct >= cfg.value) return finish("ok", `${formatPct(cov.coveredPct)} of holding value is fully nominated.`, formatPct(cov.coveredPct));
+    const open = cov.rows.filter((r) => r.entity === "holding" && r.status !== "complete");
+    return finish("triggered", `Only ${formatPct(cov.coveredPct)} of holding value is fully nominated.`, formatPct(cov.coveredPct), [{ fingerprint: `${def.key}:coverage`, kind: "breach", subject: "Nominations", currentLabel: `${formatPct(cov.coveredPct)} by value`, thresholdLabel: `< ${cfg.value}%`, provisional: false,
+      why: `${open.length} holding(s) are not fully nominated: ${open.slice(0, 6).map((r) => `${r.name} (${r.status.replace("_", " ")})`).join(", ")}${open.length > 6 ? `, and ${open.length - 6} more` : ""}. Fully nominated value is ${formatCompact(cov.completeValue)} of ${formatCompact(cov.totalValue)}.`,
+      action: "Record or complete the nominee shares on the Nominees page; confirm the same people appear in your will.", records: open.map((r) => ({ type: "holding" as const, id: r.entityId, name: r.name })) }]);
   },
 
   health_score_drop(cfg, c, def) {

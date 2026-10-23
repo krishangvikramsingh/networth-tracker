@@ -77,7 +77,7 @@ export function RiskProfilePage() {
                   </div>
                   {res.limitedBy && <p className="small sec">{LIMITED_BY_TEXT[res.limitedBy]}</p>}
                   {res.guardRails.length > 0 && <Banner tone="warn" title="Guard-rail applied.">{res.guardRails.map((g) => RISK_QUESTIONS.find((q) => q.id === g.questionId)!.text.replace(/\?$/, "")).join("; ")} — caps the profile at {PROFILES[res.guardRails.reduce((m, g) => (PROFILE_KEYS.indexOf(g.cap) < PROFILE_KEYS.indexOf(m) ? g.cap : m), res.guardRails[0].cap)].label}.</Banner>}
-                  {canWrite && <div className="row"><button className="btn primary" onClick={save} disabled={!res.complete || unchanged}>{unchanged ? "Saved" : "Save assessment"}</button>{!res.complete && <span className="small muted">Answer all {res.total} to save.</span>}</div>}
+                  {canWrite && <div className="row"><button type="button" className="btn primary" onClick={save} disabled={!res.complete || unchanged}>{unchanged ? "Saved" : "Save assessment"}</button>{!res.complete && <span className="small muted">Answer all {res.total} to save.</span>}</div>}
                 </div>)}
             </Card>
 
@@ -86,7 +86,7 @@ export function RiskProfilePage() {
                 <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Asset class</th><th className="r">Model</th><th className="r">Current target</th><th className="r">Actual</th></tr></thead>
                   <tbody>{ASSET_CLASSES.filter((c) => MODEL_PORTFOLIOS[shown][c] || rows.some((r) => r.assetClass === c && (r.pct || r.targetPct))).map((c) => { const r = rows.find((x) => x.assetClass === c); return (
                     <tr key={c}><td>{classLabel(c)}</td><td className="r num"><b>{formatPct((MODEL_PORTFOLIOS[shown][c] ?? 0) / 100)}</b></td><td className="r num">{r?.targetPct != null ? formatPct(r.targetPct) : "—"}</td><td className="r num">{r?.pct != null ? formatPct(r.pct) : "—"}</td></tr>); })}</tbody></table></div>
-                {canWrite && latest && <div className="row" style={{ marginTop: 10 }}><button className="btn" onClick={apply} disabled={!unchanged} title={unchanged ? undefined : "Save the assessment first"}>Apply as target allocation</button>{latest.appliedAt && unchanged && <Badge tone="good">applied {fmtDate(latest.appliedAt)}</Badge>}</div>}
+                {canWrite && latest && <div className="row" style={{ marginTop: 10 }}><button type="button" className="btn" onClick={apply} disabled={!unchanged} title={unchanged ? undefined : "Save the assessment first"}>Apply as target allocation</button>{latest.appliedAt && unchanged && <Badge tone="good">applied {fmtDate(latest.appliedAt)}</Badge>}</div>}
               </Card>)}
           </div>
         </div>

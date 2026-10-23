@@ -210,3 +210,6 @@ button, [role="button"], [role="tab"], .nav a, .btn { touch-action: manipulation
 .nav { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 @media (prefers-reduced-motion: reduce) { .btn:active:not(:disabled), button.kpi:active, .nav a:active { transform: none; } }
 @media (display-mode: standalone) { .install-btn { display: none; } }
+/* a button that reads as an inline link */
+.linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-align: left; }
+@media (hover: hover) and (pointer: fine) { .linkbtn:hover { text-decoration: underline; } }

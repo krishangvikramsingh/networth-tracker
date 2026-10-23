@@ -36,7 +36,7 @@ export function AlertsPage() {
       <Card pad={false}>
         {rows.length === 0 ? <div className="card-b"><Empty title={tab === "open" ? "No open alerts" : tab === "data" ? "No data notices" : "Nothing here"}>{tab === "open" ? "Every evaluable rule is within its limit. Rules without enough data appear under Data notices." : undefined}</Empty></div>
           : rows.map((a) => (
-            <button key={a.id} className="alert-row" onClick={() => setSp((p) => { p.set("open", a.id); return p; })}>
+            <button type="button" key={a.id} className="alert-row" onClick={() => setSp((p) => { p.set("open", a.id); return p; })}>
               <span className={`sev ${a.severity}`} />
               <span><b>{a.ruleName}</b> <span className="muted">· {a.subject}</span> {a.kind === "possible" && <Badge tone="warn">possible</Badge>} {a.provisional && a.kind !== "possible" && <Badge tone="outline">provisional</Badge>}
                 <div className="small sec" style={{ marginTop: 2 }}>{a.why}</div><div className="small muted" style={{ marginTop: 3 }}>Detected {fmtDateTime(a.firstDetectedAt)}{a.status === "resolved" && a.resolvedAt ? ` · resolved ${fmtDateTime(a.resolvedAt)}` : ""}</div></span>
@@ -53,9 +53,9 @@ function AlertDrawer({ a, onClose }: { a: AlertRow; onClose: () => void }) {
   const nav = useNavigate();
   return (
     <Modal drawer title={a.ruleName} onClose={onClose} footer={<>
-      {canWrite && a.status === "open" && <button className="btn primary" onClick={() => run(() => api.post(`/api/clients/${clientId}/alerts/${a.id}/ack`), "Alert acknowledged")}>Acknowledge</button>}
-      {canWrite && a.status === "acknowledged" && <button className="btn" onClick={() => run(() => api.post(`/api/clients/${clientId}/alerts/${a.id}/unack`), "Alert re-opened")}>Re-open</button>}
-      <button className="btn" onClick={onClose}>Close</button></>}>
+      {canWrite && a.status === "open" && <button type="button" className="btn primary" onClick={() => run(() => api.post(`/api/clients/${clientId}/alerts/${a.id}/ack`), "Alert acknowledged")}>Acknowledge</button>}
+      {canWrite && a.status === "acknowledged" && <button type="button" className="btn" onClick={() => run(() => api.post(`/api/clients/${clientId}/alerts/${a.id}/unack`), "Alert re-opened")}>Re-open</button>}
+      <button type="button" className="btn" onClick={onClose}>Close</button></>}>
       <div className="stack">
         <div className="row"><SevBadge s={a.severity} /><Badge tone={a.status === "resolved" ? "good" : a.status === "acknowledged" ? "info" : "warn"}>{a.status}</Badge>{a.kind === "possible" && <Badge tone="warn">possible — depends on missing data</Badge>}{a.kind === "data_gap" && <Badge tone="info">data notice</Badge>}{a.provisional && <Badge tone="outline">provisional</Badge>}</div>
         <dl className="dl">
@@ -65,7 +65,7 @@ function AlertDrawer({ a, onClose }: { a: AlertRow; onClose: () => void }) {
         <Card title="Why this triggered"><p>{a.why}</p></Card>
         <Card title="Recommended action"><p>{a.action}</p>{a.effect && <p className="small sec" style={{ marginTop: 6 }}><b>Expected effect:</b> {a.effect}</p>}<p className="small muted" style={{ marginTop: 6 }}>A recommendation to review — never an automatic trade, redemption or transfer.</p></Card>
         {a.records.length > 0 && <Card title="Relevant records"><ul style={{ margin: 0, paddingLeft: 18 }}>{a.records.slice(0, 12).map((r, i) => <li key={i}><a href={REC_LINK[r.type] + (REC_LINK[r.type].includes("?") ? "&" : "?") + "q=" + encodeURIComponent(r.name)} onClick={(e) => { e.preventDefault(); nav(REC_LINK[r.type] + (REC_LINK[r.type].includes("?") ? "&" : "?") + "q=" + encodeURIComponent(r.name)); }}>{r.name}</a> <span className="muted small">({r.type})</span></li>)}</ul></Card>}
-        <Card title="History">{a.events && a.events.length ? <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{a.events.map((e, i) => <li key={i}><b>{e.event}</b> · {fmtDateTime(e.at)}{e.detail ? ` — ${e.detail}` : ""}</li>)}</ul> : <p className="small muted">No events.</p>}</Card>
+        <Card title="History">{a.events?.length ? <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{a.events.map((e, i) => <li key={i}><b>{e.event}</b> · {fmtDateTime(e.at)}{e.detail ? ` — ${e.detail}` : ""}</li>)}</ul> : <p className="small muted">No events.</p>}</Card>
       </div>
     </Modal>
   );

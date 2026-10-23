@@ -13,10 +13,10 @@ export function ReportsPage() {
   return (
     <>
       <PageHead title="Reports & export" subtitle="Export this client’s data, or print a wealth report to PDF. Reports contain only the selected client." actions={<>
-        <button className="btn" onClick={() => download(`/api/clients/${clientId}/export/workbook.xlsx`)}><Icon d={ICONS.download} />Excel workbook</button>
-        <button className="btn primary" onClick={() => window.print()}><Icon d={ICONS.file} />Print / save as PDF</button></>} />
+        <button type="button" className="btn" onClick={() => download(`/api/clients/${clientId}/export/workbook.xlsx`)}><Icon d={ICONS.download} />Excel workbook</button>
+        <button type="button" className="btn primary" onClick={() => window.print()}><Icon d={ICONS.file} />Print / save as PDF</button></>} />
       <div className="stack no-print" style={{ marginBottom: 18 }}>
-        <Card title="CSV downloads"><div className="row">{tables.map((t) => <button key={t} className="btn sm" onClick={() => download(`/api/clients/${clientId}/export/${t}.csv`)}><Icon d={ICONS.download} size={13} />{t.replace("-", " ")}.csv</button>)}</div>
+        <Card title="CSV downloads"><div className="row">{tables.map((t) => <button type="button" key={t} className="btn sm" onClick={() => download(`/api/clients/${clientId}/export/${t}.csv`)}><Icon d={ICONS.download} size={13} />{t.replace("-", " ")}.csv</button>)}</div>
           <p className="small muted" style={{ marginTop: 8 }}>CSV cells that start with = + - @ are prefixed with an apostrophe so spreadsheets can’t execute them as formulas.</p></Card>
       </div>
       <article className="card" aria-label="Wealth report" style={{ padding: 28 }}>

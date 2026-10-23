@@ -191,7 +191,7 @@ export function EntityForm({ entity, initial, defaults, onClose, onSaved, title 
 
   return (
     <Modal title={title ?? `${editing ? "Edit" : "Add"} ${TITLES[entity]}`} onClose={onClose} wide
-      footer={<><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn primary" form="entity-form" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Add"}</button></>}>
+      footer={<><button className="btn" type="button" onClick={onClose}>Cancel</button><button type="submit" className="btn primary" form="entity-form" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Add"}</button></>}>
       <form id="entity-form" onSubmit={submit} noValidate>
         {formErr && <Banner tone="crit">{formErr}</Banner>}
         <div className="form-grid" style={formErr ? { marginTop: 12 } : undefined}>

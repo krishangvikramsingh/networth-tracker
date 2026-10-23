@@ -83,7 +83,7 @@ export function buildPriya(): ClientData {
     client: { id, name: "Priya Ramanathan", kind: "live", description: "Initial live demonstration client (figures from the project brief).", createdAt: "2026-10-01T00:00:00.000Z" },
     settings: { ...defaultSettings("live"), profileNote: "Only information from the brief is loaded. Nothing else is assumed." },
     holdings: hs, liabilities: [], cashflows: cf, commitments: [commitment], transactions: [], snapshots: [], policies: [], goals: [],
-    targets: SAMPLE_TARGETS.map((t) => ({ ...t })), rules: defaultRules(), mappings: defaultMappings(), valuations: [], scoreHistory: [],
+    targets: SAMPLE_TARGETS.map((t) => ({ ...t })), rules: defaultRules(), mappings: defaultMappings(), valuations: [], nominees: [], nominations: [], scoreHistory: [],
   };
 }
 
@@ -101,7 +101,7 @@ function buildCase(spec: CaseSpec): ClientData {
   return {
     client: { id, name: spec.name, kind: "case", description: spec.description, createdAt: "2026-10-01T00:00:00.000Z" },
     settings: { ...defaultSettings("case"), liabilitiesStatus: "complete", incomeStatus: "complete", profileNote: spec.note },
-    holdings: hs, liabilities: ls, cashflows: cf, commitments: [], transactions: [], snapshots: [], policies: [], goals: [], targets: [], rules: defaultRules(), mappings: defaultMappings(), valuations: [], scoreHistory: [],
+    holdings: hs, liabilities: ls, cashflows: cf, commitments: [], transactions: [], snapshots: [], policies: [], goals: [], targets: [], rules: defaultRules(), mappings: defaultMappings(), valuations: [], nominees: [], nominations: [], scoreHistory: [],
   };
 }
 

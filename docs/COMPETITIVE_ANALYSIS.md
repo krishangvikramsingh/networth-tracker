@@ -45,6 +45,8 @@ Ranked by value to an Indian advisor or investor against build effort.
 
 Done: risk-profile questionnaire (12), PWA install and offline shell (10), nominee page (5), email alerts (6). See the README "Features added" table. Not yet verified on real iPhone/Android hardware or against a live SMTP server.
 
+Also done afterwards: advisor overview (7), nomination alert, escalation emails, tenant isolation, OpenAPI, CI and Docker. Still open: CAS import (1), benchmark/TWR (2), tax-aware rebalancing (3), Account Aggregator (4). These need real sample files, licensed data, a tax professional or regulated partners, none of which this repo has.
+
 ## 5. Recommended order
 
 1. **Quick wins:** risk questionnaire (12), PWA install (10), nominee page (5), email alerts (6).

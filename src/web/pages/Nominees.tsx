@@ -33,7 +33,7 @@ export function NomineesPage() {
     { key: "value", label: "Value / cover", right: true, render: (r) => (r.value == null ? <span className="muted">—</span> : formatCompact(r.value)), sort: (r) => r.value },
     { key: "status", label: "Nomination", render: (r) => <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Badge>, sort: (r) => r.status },
     { key: "who", label: "Nominees", render: (r) => (r.shares.length ? r.shares.map((s) => `${s.nomineeName} ${formatPct(s.shareBps / 100)}`).join(", ") : <span className="muted">—</span>) },
-    { key: "act", label: "", render: (r) => canWrite ? <button className="btn sm" onClick={() => setAssign(r)} disabled={est.nominees.length === 0} title={est.nominees.length === 0 ? "Add a nominee first" : undefined}>{r.shares.length ? "Edit" : "Record"}</button> : null },
+    { key: "act", label: "", render: (r) => canWrite ? <button type="button" className="btn sm" onClick={() => setAssign(r)} disabled={est.nominees.length === 0} title={est.nominees.length === 0 ? "Add a nominee first" : undefined}>{r.shares.length ? "Edit" : "Record"}</button> : null },
   ];
   return (
     <>
@@ -48,10 +48,10 @@ export function NomineesPage() {
         </div>
 
         <Card title="Nominees" subtitle="People you can assign to assets below.">
-          {est.nominees.length === 0 ? <Empty title="No nominees yet" action={canWrite ? <button className="btn primary" onClick={() => setNomineeForm("new")}>Add the first nominee</button> : undefined}>Add the people who are, or should be, named on your accounts and policies.</Empty> : (
+          {est.nominees.length === 0 ? <Empty title="No nominees yet" action={canWrite ? <button type="button" className="btn primary" onClick={() => setNomineeForm("new")}>Add the first nominee</button> : undefined}>Add the people who are, or should be, named on your accounts and policies.</Empty> : (
             <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Notes</th><th /></tr></thead>
               <tbody>{est.nominees.map((n) => <tr key={n.id}><td><b>{n.name}</b></td><td>{n.relationship}</td><td>{n.contact ?? "—"}</td><td className="small">{n.notes ?? "—"}</td>
-                <td className="r">{canWrite && <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}><button className="btn sm" aria-label={`Edit ${n.name}`} onClick={() => setNomineeForm(n)}><Icon d={ICONS.edit} size={13} /></button><button className="btn sm" aria-label={`Remove ${n.name}`} onClick={() => removeNominee(n)}><Icon d={ICONS.trash} size={13} /></button></div>}</td></tr>)}</tbody></table></div>)}
+                <td className="r">{canWrite && <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}><button type="button" className="btn sm" aria-label={`Edit ${n.name}`} onClick={() => setNomineeForm(n)}><Icon d={ICONS.edit} size={13} /></button><button type="button" className="btn sm" aria-label={`Remove ${n.name}`} onClick={() => removeNominee(n)}><Icon d={ICONS.trash} size={13} /></button></div>}</td></tr>)}</tbody></table></div>)}
         </Card>
 
         <Card title="Nomination by asset" subtitle="Underlying positions inside a fund or PMS share the account's nomination, so only top-level holdings are listed." pad={false}>
@@ -78,7 +78,7 @@ function NomineeForm({ initial, onClose, onSaved }: { initial?: Nominee; onClose
     } catch (x) { if (x instanceof ApiError && x.details) setErrs(Object.fromEntries(x.details.map((d) => [d.field, d.message]))); else toast(x instanceof Error ? x.message : "Failed", "err"); } finally { setBusy(false); }
   }
   return (
-    <Modal title={initial ? "Edit nominee" : "Add nominee"} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" form="nominee-form" disabled={busy}>{initial ? "Save" : "Add"}</button></>}>
+    <Modal title={initial ? "Edit nominee" : "Add nominee"} onClose={onClose} footer={<><button type="button" className="btn" onClick={onClose}>Cancel</button><button type="submit" className="btn primary" form="nominee-form" disabled={busy}>{initial ? "Save" : "Add"}</button></>}>
       <form id="nominee-form" onSubmit={submit} className="form-grid">
         <Field label="Full name" error={errs.name} full><input type="text" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} /></Field>
         <Field label="Relationship" error={errs.relationship}><select value={RELATIONS.includes(v.relationship) ? v.relationship : "Other relative"} onChange={(e) => setV({ ...v, relationship: e.target.value })}>{RELATIONS.map((r) => <option key={r}>{r}</option>)}</select></Field>
@@ -102,17 +102,17 @@ function AssignForm({ row, nominees, onClose, onSaved }: { row: CoverageRow; nom
   }
   return (
     <Modal title={`Nomination: ${row.name}`} onClose={onClose} footer={<>
-      {row.shares.length > 0 && <button className="btn" style={{ marginRight: "auto" }} onClick={() => save([])}>Clear record</button>}
-      <button className="btn" onClick={onClose}>Cancel</button>
-      <button className="btn primary" disabled={status === "over" || lines.some((l) => !(Number(l.pct) > 0))} onClick={() => save(lines.map((l) => ({ nomineeId: l.nomineeId, shareBps: Math.round(Number(l.pct) * 100) })))}>Save</button></>}>
+      {row.shares.length > 0 && <button type="button" className="btn" style={{ marginRight: "auto" }} onClick={() => save([])}>Clear record</button>}
+      <button type="button" className="btn" onClick={onClose}>Cancel</button>
+      <button type="button" className="btn primary" disabled={status === "over" || lines.some((l) => !(Number(l.pct) > 0))} onClick={() => save(lines.map((l) => ({ nomineeId: l.nomineeId, shareBps: Math.round(Number(l.pct) * 100) })))}>Save</button></>}>
       <div className="stack" style={{ gap: 10 }}>
         {lines.map((l, i) => (
           <div key={i} className="row">
             <select aria-label="Nominee" value={l.nomineeId} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, nomineeId: e.target.value } : x)))} style={{ flex: 1 }}>{free(i).map((n) => <option key={n.id} value={n.id}>{n.name} ({n.relationship})</option>)}</select>
             <input aria-label="Share percent" type="number" min="0.01" max="100" step="0.01" value={l.pct} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, pct: e.target.value } : x)))} style={{ width: 90, textAlign: "right" }} /><span>%</span>
-            <button className="btn sm" aria-label="Remove nominee from this asset" onClick={() => setLines(lines.filter((_, j) => j !== i))} disabled={lines.length === 1}><Icon d={ICONS.x} size={13} /></button>
+            <button type="button" className="btn sm" aria-label="Remove nominee from this asset" onClick={() => setLines(lines.filter((_, j) => j !== i))} disabled={lines.length === 1}><Icon d={ICONS.x} size={13} /></button>
           </div>))}
-        <div className="row"><button className="btn" onClick={() => setLines([...lines, { nomineeId: nominees.find((n) => !lines.some((l) => l.nomineeId === n.id))?.id ?? "", pct: String(Math.max(0, 100 - total)) }])} disabled={lines.length >= nominees.length}><Icon d={ICONS.plus} />Add another nominee</button>
+        <div className="row"><button type="button" className="btn" onClick={() => setLines([...lines, { nomineeId: nominees.find((n) => !lines.some((l) => l.nomineeId === n.id))?.id ?? "", pct: String(Math.max(0, 100 - total)) }])} disabled={lines.length >= nominees.length}><Icon d={ICONS.plus} />Add another nominee</button>
           <b className="num" style={{ marginLeft: "auto", color: status === "complete" ? "var(--good)" : status === "over" ? "var(--crit)" : "var(--ink)" }}>Total {total.toFixed(2)}%</b></div>
         {status === "partial" && <p className="small muted">Under 100% is saved as a partial nomination so the gap stays visible.</p>}
         {status === "over" && <p className="small" style={{ color: "var(--crit)" }}>Shares cannot add up to more than 100%.</p>}

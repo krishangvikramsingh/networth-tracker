@@ -91,6 +91,10 @@ page.once("dialog", (d) => d.accept());
 await page.getByRole("button", { name: "Apply as target allocation" }).click(); await page.waitForSelector("text=Target allocation updated");
 await page.goto(base + "/rules"); await page.waitForSelector("input[aria-label='Indian equity target percent']");
 ok((await page.inputValue("input[aria-label='Indian equity target percent']")) === "45", "applied model portfolio sets Indian equity target to 45%");
+ok((await page.locator(".banner", { hasText: "Sample policy" }).first().innerText()).includes("illustrative Moderately aggressive model"), "policy banner names the model the targets came from");
+await page.fill("input[aria-label='Indian equity target percent']", "44"); await page.fill("input[aria-label='Global equity target percent']", "21");
+await page.getByRole("button", { name: "Save targets" }).click(); await page.waitForSelector("text=Targets saved");
+ok(!(await page.locator(".banner", { hasText: "Sample policy" }).first().innerText()).includes("illustrative Moderately aggressive model"), "after editing the targets the banner no longer claims they are the model");
 
 // nominees: add a nominee, record a full nomination
 await page.goto(base + "/nominees"); await page.waitForSelector(".page h1");
@@ -102,6 +106,16 @@ await page.getByRole("button", { name: "Record" }).first().click();
 await page.getByRole("button", { name: "Save", exact: true }).click(); await page.waitForSelector("text=Nomination saved");
 ok(await page.locator("text=Complete (100%)").first().isVisible(), "a 100% nomination shows as Complete");
 ok(!(await page.locator(".kpi", { hasText: "Assets fully nominated" }).innerText()).includes("Awaiting data"), "coverage is a number once an asset is nominated");
+
+// advisor overview and API reference
+await page.goto(base + "/clients"); await page.waitForSelector(".page h1");
+ok((await text("table.tbl")).includes("Priya Ramanathan"), "All clients lists the live client");
+ok((await page.locator(".kpi", { hasText: "Total gross assets" }).innerText()).includes("₹8.63 Cr"), "All clients totals gross assets for real clients only");
+ok(await page.locator("text=Attention queue").isVisible(), "attention queue is shown");
+await page.locator("table.tbl tbody tr", { hasText: "Priya Ramanathan" }).first().click(); await page.waitForSelector(".kpi", { hasText: "Gross assets" });
+ok(new URL(page.url()).pathname === "/", "clicking a client opens it");
+const spec = await (await page.request.get(base + "/api/docs/openapi.json")).json();
+ok(spec.openapi === "3.1.0" && !!spec.paths["/api/clients/{cid}/state"], "API reference is served and covers the state route");
 
 // email notifications
 // preferences belong to the user and survive "Reset demo data", so start from a known baseline to keep this script re-runnable
@@ -151,7 +165,7 @@ ok((await page.locator(".kpi", { hasText: "Confirmed liabilities" }).innerText()
 
 // responsive: mobile has no horizontal page scroll
 await page.setViewportSize({ width: 390, height: 800 });
-for (const r of ["/", "/assets", "/rules", "/risk", "/nominees", "/notifications"]) { await page.goto(base + r); await page.waitForSelector(".page h1"); const w = await page.evaluate(() => document.documentElement.scrollWidth); ok(w <= 392, `no horizontal page scroll at 390px on ${r} (scrollWidth ${w})`); }
+for (const r of ["/", "/assets", "/rules", "/risk", "/nominees", "/notifications", "/clients"]) { await page.goto(base + r); await page.waitForSelector(".page h1"); const w = await page.evaluate(() => document.documentElement.scrollWidth); ok(w <= 392, `no horizontal page scroll at 390px on ${r} (scrollWidth ${w})`); }
 ok(errors.length === 0, `no console/page errors${errors.length ? ": " + errors.slice(0, 3).join(" | ") : ""}`);
 console.log(`\n${passed} checks passed`);
 await browser.close();

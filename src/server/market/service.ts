@@ -4,7 +4,6 @@ import { isValidISODate, daysBetween, todayISO } from "../../shared/dates";
 import { PROVIDERS, DEMO_UNIVERSE } from "./providers";
 import type { Observation } from "./types";
 
-const CACHE_TTL_MS = Number(process.env.MARKET_CACHE_SECONDS ?? 900) * 1000;
 const MIN_INTERVAL_MS = Number(process.env.MARKET_MIN_INTERVAL_SECONDS ?? 30) * 1000;
 const lastCall = new Map<string, number>();
 export const resetMarketThrottle = () => lastCall.clear();

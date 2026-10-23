@@ -4,8 +4,7 @@ import { useApp } from "../store";
 import { Badge, Banner, Card, DataTable, Empty, Kpi, PageHead, Segmented, classColor, classLabel, fmtDate } from "../ui";
 import { BarsChart, ChartCard, Donut, SimpleBars, TrendChart } from "../charts";
 import { formatCompact, formatPct, pct, sum } from "@shared/money";
-import { ASSET_CLASSES, INSTRUMENT_LABEL, LIQUIDITY_LABEL, type AssetClass } from "@shared/taxonomy";
-import { monthLabel } from "@shared/dates";
+import { ASSET_CLASSES, INSTRUMENT_LABEL, LIQUIDITY_LABEL, } from "@shared/taxonomy";
 import type { EffectiveLine } from "@shared/portfolio";
 
 export function PortfolioPage() {
@@ -70,7 +69,7 @@ export function PortfolioPage() {
           <select aria-label="Issuer" value={fiss} onChange={(e) => setFiss(e.target.value)} style={{ width: "auto" }}><option value="">All issuers</option>{issuers.map((a) => <option key={a}>{a}</option>)}</select>
           <label className="small muted">Valued from <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ width: "auto" }} /></label>
           <label className="small muted">to <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ width: "auto" }} /></label>
-          {(fc || fi || fa || fiss || from || to) && <button className="btn sm" onClick={() => { setFc(""); setFi(""); setFa(""); setFiss(""); setFrom(""); setTo(""); }}>Clear</button>}
+          {(fc || fi || fa || fiss || from || to) && <button type="button" className="btn sm" onClick={() => { setFc(""); setFi(""); setFa(""); setFiss(""); setFrom(""); setTo(""); }}>Clear</button>}
         </div></Card>
 
         <div className="grid g4">

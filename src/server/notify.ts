@@ -42,7 +42,7 @@ export function setPrefs(db: DB, userId: string, p: Prefs): Prefs {
 }
 
 // ---- rendering ----------------------------------------------------------------------------------
-export interface DigestItem { severity: Severity; ruleName: string; subject: string; why: string; action: string; currentLabel: string; thresholdLabel: string }
+export interface DigestItem { severity: Severity; escalated?: boolean; ruleName: string; subject: string; why: string; action: string; currentLabel: string; thresholdLabel: string }
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const SEV_LABEL: Record<Severity, string> = { critical: "Critical", high: "High", warning: "Warning", info: "Notice" };
 
@@ -52,13 +52,14 @@ const SEV_LABEL: Record<Severity, string> = { critical: "Critical", high: "High"
  */
 export function renderDigest(client: string, items: DigestItem[], baseUrl: string, details: boolean): { subject: string; text: string; html: string } {
   const worst = items.reduce((m, i) => (sevIdx(i.severity) > sevIdx(m) ? i.severity : m), items[0].severity);
-  const subject = items.length === 1 ? `[${SEV_LABEL[worst]}] ${items[0].ruleName} - ${client}` : `[${SEV_LABEL[worst]}] ${items.length} new alerts - ${client}`;
+  const allEsc = items.every((i) => i.escalated), noneEsc = items.every((i) => !i.escalated);
+  const subject = items.length === 1 ? `[${SEV_LABEL[worst]}] ${items[0].escalated ? "Escalated: " : ""}${items[0].ruleName} - ${client}` : `[${SEV_LABEL[worst]}] ${items.length} ${allEsc ? "escalated alerts" : noneEsc ? "new alerts" : "new or escalated alerts"} - ${client}`;
   const link = `${baseUrl.replace(/\/$/, "")}/alerts`;
-  const line = (i: DigestItem) => `${SEV_LABEL[i.severity]}: ${i.ruleName}${i.subject ? ` (${i.subject})` : ""}`;
+  const line = (i: DigestItem) => `${i.escalated ? "Escalated to " : ""}${SEV_LABEL[i.severity]}: ${i.ruleName}${i.subject ? ` (${i.subject})` : ""}`;
   const more = (i: DigestItem) => (details ? [`   ${i.currentLabel} against ${i.thresholdLabel}`, `   Why: ${i.why}`, `   Option to consider: ${i.action}`] : []);
   const foot = "Educational tool with synthetic data. Not investment, tax or legal advice. You can turn these emails off on the Notifications page.";
-  const text = [`New alerts for ${client}:`, "", ...items.flatMap((i) => ["- " + line(i), ...more(i)]), "", `Review them: ${link}`, "", foot].join("\n");
-  const html = `<p>New alerts for <b>${esc(client)}</b>:</p><ul>${items.map((i) => `<li><b>${esc(SEV_LABEL[i.severity])}</b>: ${esc(i.ruleName)}${i.subject ? ` (${esc(i.subject)})` : ""}${details ? `<br><small>${esc(i.currentLabel)} against ${esc(i.thresholdLabel)}. ${esc(i.why)} Option to consider: ${esc(i.action)}</small>` : ""}</li>`).join("")}</ul><p><a href="${esc(link)}">Review alerts</a></p><p><small>${esc(foot)}</small></p>`;
+  const text = [`${noneEsc ? "New alerts" : "Alerts"} for ${client}:`, "", ...items.flatMap((i) => ["- " + line(i), ...more(i)]), "", `Review them: ${link}`, "", foot].join("\n");
+  const html = `<p>${noneEsc ? "New alerts" : "Alerts"} for <b>${esc(client)}</b>:</p><ul>${items.map((i) => `<li><b>${i.escalated ? "Escalated to " : ""}${esc(SEV_LABEL[i.severity])}</b>: ${esc(i.ruleName)}${i.subject ? ` (${esc(i.subject)})` : ""}${details ? `<br><small>${esc(i.currentLabel)} against ${esc(i.thresholdLabel)}. ${esc(i.why)} Option to consider: ${esc(i.action)}</small>` : ""}</li>`).join("")}</ul><p><a href="${esc(link)}">Review alerts</a></p><p><small>${esc(foot)}</small></p>`;
   return { subject, text, html };
 }
 
@@ -72,7 +73,7 @@ export interface DispatchResult { processed: number; sent: number; skipped: numb
 export async function dispatchNotifications(db: DB, mailer: Mailer, opts: { baseUrl?: string; details?: boolean; now?: string } = {}): Promise<DispatchResult> {
   const now = opts.now ?? nowISO(), baseUrl = opts.baseUrl ?? process.env.APP_BASE_URL ?? "http://127.0.0.1:8787", details = opts.details ?? process.env.NOTIFY_INCLUDE_DETAILS === "1";
   const out: DispatchResult = { processed: 0, sent: 0, skipped: 0, failed: 0, emails: 0 };
-  const pending = db.prepare(`SELECT n.id, n.client_id, n.severity, a.rule_key, a.subject, a.why, a.action, a.current_label, a.threshold_label, a.status AS alert_status, c.name AS client_name
+  const pending = db.prepare(`SELECT n.id, n.client_id, n.severity, n.reason, a.rule_key, a.subject, a.why, a.action, a.current_label, a.threshold_label, a.status AS alert_status, c.name AS client_name, c.tenant_id
     FROM notifications n JOIN alerts a ON a.id = n.alert_id JOIN clients c ON c.id = n.client_id WHERE n.status = 'pending' ORDER BY n.created_at, n.rowid`).all() as any[];
   if (!pending.length) return out;
   const finish = db.prepare("UPDATE notifications SET status = ?, note = ?, processed_at = ? WHERE id = ?");
@@ -82,7 +83,7 @@ export async function dispatchNotifications(db: DB, mailer: Mailer, opts: { base
     if (n.alert_status !== "open") { finish.run("skipped", n.alert_status === "resolved" ? "Condition cleared before sending." : "Already acknowledged before sending.", now, n.id); out.skipped++; out.processed++; }
     else live.push(n);
   }
-  const users = db.prepare("SELECT u.id, u.email, p.min_severity FROM notification_prefs p JOIN users u ON u.id = p.user_id WHERE p.email_enabled = 1").all() as any[];
+  const users = db.prepare("SELECT u.id, u.email, u.tenant_id, p.min_severity FROM notification_prefs p JOIN users u ON u.id = p.user_id WHERE p.email_enabled = 1").all() as any[];
   const delivery = (nid: string, uidv: string) => db.prepare("SELECT status, attempts FROM notification_deliveries WHERE notification_id = ? AND user_id = ?").get(nid, uidv) as { status: string; attempts: number } | undefined;
   const settled = (d: ReturnType<typeof delivery>) => !!d && (d.status !== "failed" || d.attempts >= MAX_ATTEMPTS);
   const upsert = db.prepare(`INSERT INTO notification_deliveries (notification_id, user_id, status, attempts, error, at) VALUES (?,?,?,1,?,?)
@@ -90,9 +91,9 @@ export async function dispatchNotifications(db: DB, mailer: Mailer, opts: { base
 
   for (const u of users) {
     for (const cid of new Set(live.map((n) => n.client_id))) {
-      const items = live.filter((n) => n.client_id === cid && sevIdx(n.severity) >= sevIdx(u.min_severity) && !settled(delivery(n.id, u.id)));
+      const items = live.filter((n) => n.client_id === cid && n.tenant_id === u.tenant_id && sevIdx(n.severity) >= sevIdx(u.min_severity) && !settled(delivery(n.id, u.id)));
       if (!items.length) continue;
-      const msg = renderDigest(items[0].client_name, items.map((n) => ({ severity: n.severity, ruleName: RULE_DEF_BY_KEY[n.rule_key as keyof typeof RULE_DEF_BY_KEY]?.name ?? n.rule_key, subject: n.subject, why: n.why, action: n.action, currentLabel: n.current_label, thresholdLabel: n.threshold_label })), baseUrl, details);
+      const msg = renderDigest(items[0].client_name, items.map((n) => ({ severity: n.severity, escalated: n.reason === "escalated", ruleName: RULE_DEF_BY_KEY[n.rule_key as keyof typeof RULE_DEF_BY_KEY]?.name ?? n.rule_key, subject: n.subject, why: n.why, action: n.action, currentLabel: n.current_label, thresholdLabel: n.threshold_label })), baseUrl, details);
       try {
         await mailer.send({ to: u.email, ...msg });
         for (const n of items) upsert.run(n.id, u.id, mailer.mode === "smtp" ? "sent" : "outbox", null, now);
@@ -105,7 +106,7 @@ export async function dispatchNotifications(db: DB, mailer: Mailer, opts: { base
   }
 
   for (const n of live) {
-    const eligible = users.filter((u) => sevIdx(n.severity) >= sevIdx(u.min_severity));
+    const eligible = users.filter((u) => u.tenant_id === n.tenant_id && sevIdx(n.severity) >= sevIdx(u.min_severity));
     if (!eligible.length) { finish.run("skipped", "No recipient has email alerts on for this severity.", now, n.id); out.skipped++; out.processed++; continue; }
     const ds = eligible.map((u) => delivery(n.id, u.id));
     if (!ds.every(settled)) continue; // still retrying
@@ -130,10 +131,10 @@ export function startDispatcher(db: DB, mailer: Mailer, everySeconds = Number(pr
 }
 
 // ---- read models for the UI ---------------------------------------------------------------------
-export function recentNotifications(db: DB, limit = 25) {
+export function recentNotifications(db: DB, limit = 25, tenantId?: string) {
   return (db.prepare(`SELECT n.id, n.severity, n.status, n.note, n.created_at, n.processed_at, a.subject, a.rule_key, c.name AS client_name,
       (SELECT COUNT(*) FROM notification_deliveries d WHERE d.notification_id = n.id AND d.status != 'failed') AS delivered
-    FROM notifications n JOIN alerts a ON a.id = n.alert_id JOIN clients c ON c.id = n.client_id ORDER BY n.created_at DESC, n.rowid DESC LIMIT ?`).all(limit) as any[])
+    FROM notifications n JOIN alerts a ON a.id = n.alert_id JOIN clients c ON c.id = n.client_id WHERE (? IS NULL OR c.tenant_id = ?) ORDER BY n.created_at DESC, n.rowid DESC LIMIT ?`).all(tenantId ?? null, tenantId ?? null, limit) as any[])
     .map((r) => ({ id: r.id, severity: r.severity, status: r.status, note: r.note, createdAt: r.created_at, processedAt: r.processed_at, subject: r.subject, ruleName: RULE_DEF_BY_KEY[r.rule_key as keyof typeof RULE_DEF_BY_KEY]?.name ?? r.rule_key, clientName: r.client_name, delivered: r.delivered as number }));
 }
 export function outboxFor(db: DB, email: string, limit = 10) {

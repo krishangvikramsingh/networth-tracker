@@ -2,12 +2,16 @@ import { openDb } from "./db";
 import { createApp } from "./app";
 import { seedIfEmpty } from "./seed";
 import { mailerFromEnv, startDispatcher } from "./notify";
+import { startReconciler } from "./jobs";
+import { reconcileAll } from "./service";
 
 const db = openDb();
 const seeded = seedIfEmpty(db);
+reconcileAll(db); // bring alert history up to date before serving
 const mailer = await mailerFromEnv(db);
 const app = createApp(db, { mailer });
 startDispatcher(db, mailer);
+startReconciler(db);
 const port = Number(process.env.PORT ?? 8787);
 app.listen(port, process.env.HOST ?? "127.0.0.1", () => {
   console.log(`Email alerts: ${mailer.mode === "smtp" ? "SMTP" : "outbox only (set SMTP_HOST to send real email)"}`);

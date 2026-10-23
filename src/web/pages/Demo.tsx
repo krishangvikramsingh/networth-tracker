@@ -43,8 +43,8 @@ export function DemoPage() {
   return (
     <>
       <PageHead title="Guided demonstration" subtitle="A 15-step walkthrough for the live presentation. Data-entry steps use clearly labelled DEMO values and can be undone with Reset."
-        actions={<button className="btn danger" disabled={!canWrite} onClick={async () => { if (!confirm("Reset Priya and the three case studies to their original state? Clients you created yourself are not touched.")) return; await run(() => api.post("/api/demo/reset", {}), "Demo data reset"); setChecked({}); try { localStorage.removeItem("nw.demo"); } catch { /* ignore */ } }}>Reset demo data</button>} />
-      {!onPriya && <div style={{ marginBottom: 14 }}><Banner tone="warn">You are viewing a different client. The demo walkthrough is written for Priya Ramanathan. <button className="btn sm" onClick={() => setClientId(PRIYA_ID)} disabled={!clients.some((c) => c.id === PRIYA_ID)}>Switch to Priya</button></Banner></div>}
+        actions={<button type="button" className="btn danger" disabled={!canWrite} onClick={async () => { if (!confirm("Reset Priya and the three case studies to their original state? Clients you created yourself are not touched.")) return; await run(() => api.post("/api/demo/reset", {}), "Demo data reset"); setChecked({}); try { localStorage.removeItem("nw.demo"); } catch { /* ignore */ } }}>Reset demo data</button>} />
+      {!onPriya && <div style={{ marginBottom: 14 }}><Banner tone="warn">You are viewing a different client. The demo walkthrough is written for Priya Ramanathan. <button type="button" className="btn sm" onClick={() => setClientId(PRIYA_ID)} disabled={!clients.some((c) => c.id === PRIYA_ID)}>Switch to Priya</button></Banner></div>}
       <Card title={`Progress: ${doneCount} of ${STEPS.length}`}>
         {STEPS.map((s, i) => {
           const auto = onPriya && s.done?.(state);
@@ -54,7 +54,7 @@ export function DemoPage() {
               <div className="n">{done ? <Icon d={ICONS.check} size={13} /> : i + 1}</div>
               <div><b>{s.title}</b> {auto && <Badge tone="good">detected</Badge>}<div className="small sec">{s.body}</div></div>
               <div className="row" style={{ justifyContent: "flex-end" }}>
-                {s.action && <button className="btn sm primary" disabled={!canWrite || !onPriya} onClick={() => setForm(s.action!)}>{s.action.label}</button>}
+                {s.action && <button type="button" className="btn sm primary" disabled={!canWrite || !onPriya} onClick={() => setForm(s.action!)}>{s.action.label}</button>}
                 {s.to && <Link className="btn sm" to={s.to}>Open →</Link>}
                 <label className="check small"><input type="checkbox" checked={!!checked[s.id]} onChange={() => toggle(s.id)} />done</label>
               </div>

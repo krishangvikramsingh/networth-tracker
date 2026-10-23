@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { useApp } from "../store";
 import { Badge, Banner, Card, Empty, Field, Icon, ICONS, MoneyInput, PageHead, SevBadge, Segmented, Tabs, classLabel, fmtDateTime } from "../ui";
@@ -9,6 +10,7 @@ import { DENOMINATOR_LABEL } from "@shared/portfolio";
 import { HEALTH_LABELS } from "@shared/score";
 import type { RuleConfig, HealthWeights } from "@shared/types";
 import type { Trade } from "@shared/rebalance";
+import { MODEL_PORTFOLIOS, PROFILES, PROFILE_KEYS, type ProfileKey } from "@shared/riskprofile";
 
 type Tab = "allocation" | "rules" | "settings";
 const STATE_TONE = { ok: "good", triggered: "crit", possible: "warn", not_evaluable: "info", disabled: "" } as const;
@@ -39,6 +41,14 @@ function AllocationTab() {
     for (const c of ASSET_CLASSES) { const t = d.targets.find((x) => x.assetClass === c); m[c] = { t: t ? String(t.targetBps / 100) : "", b: t?.bandBps != null ? String(t.bandBps / 100) : "" }; }
     setDraft(m);
   }, [d.targets]);
+  // which model portfolio, if any, the saved targets exactly match (so the banner never claims a source the targets no longer have)
+  const [latestProfile, setLatestProfile] = useState<ProfileKey | null>(null);
+  useEffect(() => { api.get(`/api/clients/${clientId}/risk-profile`).then((r) => setLatestProfile(r.assessments[0]?.profile ?? null)).catch(() => setLatestProfile(null)); }, [clientId]);
+  const matchedModel = latestProfile && PROFILE_KEYS.includes(latestProfile) && (() => {
+    const m = MODEL_PORTFOLIOS[latestProfile]; const cur = Object.fromEntries(d.targets.map((t) => [t.assetClass, t.targetBps]));
+    const keys = new Set([...Object.keys(m), ...Object.keys(cur)]);
+    return d.targets.length > 0 && [...keys].every((k) => (m as Record<string, number>)[k] === cur[k]);
+  })() ? latestProfile : null;
   const total = ASSET_CLASSES.reduce((a, c) => a + (Number(draft[c]?.t) || 0), 0);
   const valid = Math.abs(total - 100) < 0.005 || total === 0;
   const rows = ev.allocation[den];
@@ -74,8 +84,10 @@ function AllocationTab() {
         </div>
       </Card>
 
-      {!d.settings.investmentPolicyValidated && <Banner tone="warn" title="Sample policy, not a validated investment policy.">The 50 / 20 / 10 / 10 / 5 / 5 split is the example from the project brief. It has not been confirmed as appropriate for {d.client.name}. {canWrite && <label className="check" style={{ marginTop: 6 }}><input type="checkbox" checked={false} onChange={() => setSetting({ investmentPolicyValidated: true }, "Policy marked as validated")} /> I have validated these targets for this client</label>}</Banner>}
-      {d.settings.investmentPolicyValidated && canWrite && <div><button className="btn sm" onClick={() => setSetting({ investmentPolicyValidated: false }, "Policy marked as not validated")}>Mark policy as not validated</button></div>}
+      {!d.settings.investmentPolicyValidated && <Banner tone="warn" title="Sample policy, not a validated investment policy.">{matchedModel
+        ? <>These targets are the illustrative <b>{PROFILES[matchedModel].label}</b> model from the <Link to="/risk">Risk profile</Link> questionnaire. They have not been confirmed as appropriate for {d.client.name}.</>
+        : <>The targets shown are a sample (the 50 / 20 / 10 / 10 / 5 / 5 split from the project brief) or your own edits. They have not been confirmed as appropriate for {d.client.name}. You can start from a model on the <Link to="/risk">Risk profile</Link> page.</>} {canWrite && <label className="check" style={{ marginTop: 6 }}><input type="checkbox" checked={false} onChange={() => setSetting({ investmentPolicyValidated: true }, "Policy marked as validated")} /> I have validated these targets for this client</label>}</Banner>}
+      {d.settings.investmentPolicyValidated && canWrite && <div><button type="button" className="btn sm" onClick={() => setSetting({ investmentPolicyValidated: false }, "Policy marked as not validated")}>Mark policy as not validated</button></div>}
 
       <div className="grid g-main">
         <Card title="Target vs actual" subtitle={`On ${DENOMINATOR_LABEL[den].label}. Drift = actual % − target % in percentage points.`} pad={false}>
@@ -90,7 +102,7 @@ function AllocationTab() {
                 <td className="r num">{r.targetValue == null ? "—" : formatCompact(r.targetValue)}</td><td className="r num">{r.gapValue == null ? "—" : `${r.gapValue > 0 ? "+" : ""}${formatCompact(r.gapValue)}`}</td></tr>))}
               <tr><td><b>Total</b></td><td className="r num"><b style={{ color: valid ? "var(--good)" : "var(--crit)" }}>{total.toFixed(2)}%</b></td><td colSpan={6}>{!valid && <span className="err" style={{ color: "var(--crit)" }}>Targets must add up to 100%.</span>}</td></tr></tbody></table>
             {err && <div className="err" style={{ color: "var(--crit)", marginTop: 8 }} role="alert">{err}</div>}
-            <div className="row" style={{ marginTop: 10 }}><button className="btn primary" onClick={save} disabled={!canWrite || !valid}>Save targets</button><button className="btn" onClick={() => setDraft(Object.fromEntries(ASSET_CLASSES.map((c) => [c, { t: "", b: "" }])))} disabled={!canWrite}>Clear all</button><span className="small muted">Direct real estate has no target in the sample policy (it is outside the investable denominator).</span></div></div>
+            <div className="row" style={{ marginTop: 10 }}><button type="button" className="btn primary" onClick={save} disabled={!canWrite || !valid}>Save targets</button><button type="button" className="btn" onClick={() => setDraft(Object.fromEntries(ASSET_CLASSES.map((c) => [c, { t: "", b: "" }])))} disabled={!canWrite}>Clear all</button><span className="small muted">Direct real estate has no target in the sample policy (it is outside the investable denominator).</span></div></div>
         </Card>
         <Card title="Drift summary">
           <p className="small sec" style={{ marginBottom: 8 }}>A <b>5 pp</b> tolerance means 50% → 56% is a <b>6 percentage-point</b> drift (not “12%”). Exactly at the tolerance does not trigger unless you choose the inclusive option.</p>
@@ -119,9 +131,9 @@ function AllocationTab() {
               <select aria-label="Direction" value={t.dir} onChange={(e) => setTrades(trades.map((x, j) => (j === i ? { ...x, dir: e.target.value as "buy" | "sell" } : x)))} style={{ width: 90 }}><option value="buy">Buy</option><option value="sell">Sell</option></select>
               <select aria-label="Asset class" value={t.assetClass} onChange={(e) => setTrades(trades.map((x, j) => (j === i ? { ...x, assetClass: e.target.value as AssetClass } : x)))} style={{ width: 200 }}>{ASSET_CLASSES.map((c) => <option key={c} value={c}>{classLabel(c)}</option>)}</select>
               <div style={{ width: 220 }}><MoneyInput value={t.amount} onChange={(v) => setTrades(trades.map((x, j) => (j === i ? { ...x, amount: v } : x)))} placeholder="Amount e.g. 25L" /></div>
-              <button className="btn sm" onClick={() => setTrades(trades.filter((_, j) => j !== i))} aria-label="Remove trade"><Icon d={ICONS.x} size={13} /></button>
+              <button type="button" className="btn sm" onClick={() => setTrades(trades.filter((_, j) => j !== i))} aria-label="Remove trade"><Icon d={ICONS.x} size={13} /></button>
             </div>))}
-          <div className="row"><button className="btn" onClick={() => setTrades([...trades, { assetClass: "debt", dir: "buy", amount: null }])}><Icon d={ICONS.plus} />Add trade</button><button className="btn" onClick={fromPlan} disabled={!plan.items.some((i) => i.suggestedAmount > 0)}>Load suggested options</button>{trades.length > 0 && <button className="btn ghost" onClick={() => setTrades([])}>Reset</button>}
+          <div className="row"><button type="button" className="btn" onClick={() => setTrades([...trades, { assetClass: "debt", dir: "buy", amount: null }])}><Icon d={ICONS.plus} />Add trade</button><button type="button" className="btn" onClick={fromPlan} disabled={!plan.items.some((i) => i.suggestedAmount > 0)}>Load suggested options</button>{trades.length > 0 && <button type="button" className="btn ghost" onClick={() => setTrades([])}>Reset</button>}
             {saved.length > 0 && <select aria-label="Load saved scenario" value="" onChange={(e) => { const sc = saved.find((x) => x.id === e.target.value); if (sc) setTrades(sc.trades.map((t) => ({ assetClass: t.assetClass, dir: t.amount >= 0 ? "buy" : "sell", amount: Math.abs(t.amount) }))); }} style={{ width: "auto" }}><option value="">Load saved…</option>{saved.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>}</div>
           {sim && (<div className="stack" style={{ marginTop: 6 }}>
             {sim.warnings.map((w: string, i: number) => <Banner key={i} tone="warn">{w}</Banner>)}
@@ -135,7 +147,7 @@ function AllocationTab() {
             <div><b className="small">Rule outcomes that change</b>
               <ul className="small" style={{ margin: "4px 0 0", paddingLeft: 18 }}>{sim.after.rules.filter((r: any, i: number) => r.state !== sim.before.rules[i].state).map((r: any) => <li key={r.key}>{r.name}: {STATE_LABEL[sim.before.rules.find((x: any) => x.key === r.key).state as keyof typeof STATE_LABEL]} → <b>{STATE_LABEL[r.state as keyof typeof STATE_LABEL]}</b></li>)}
                 {sim.after.rules.every((r: any, i: number) => r.state === sim.before.rules[i].state) && <li className="muted">No rule changes state.</li>}</ul></div>
-            <div className="row"><input aria-label="Scenario name" placeholder="Scenario name" value={scName} onChange={(e) => setScName(e.target.value)} style={{ width: 220 }} /><button className="btn" disabled={!canWrite || !scName.trim()} onClick={async () => { await api.post(`/api/clients/${clientId}/scenarios`, { name: scName, trades: payload() }).then(() => { toast("Scenario saved (not executed)"); setScName(""); loadSaved(); }).catch((e) => toast(e.message, "err")); }}>Save scenario</button><span className="small muted">Saving records the idea only. No trade is placed.</span></div></div>)}
+            <div className="row"><input aria-label="Scenario name" placeholder="Scenario name" value={scName} onChange={(e) => setScName(e.target.value)} style={{ width: 220 }} /><button type="button" className="btn" disabled={!canWrite || !scName.trim()} onClick={async () => { await api.post(`/api/clients/${clientId}/scenarios`, { name: scName, trades: payload() }).then(() => { toast("Scenario saved (not executed)"); setScName(""); loadSaved(); }).catch((e) => toast(e.message, "err")); }}>Save scenario</button><span className="small muted">Saving records the idea only. No trade is placed.</span></div></div>)}
         </div>
       </Card>
     </div>
@@ -171,7 +183,7 @@ function RuleCard({ def, cfg }: { def: RuleDef; cfg: RuleConfig }) {
         {def.key === "idle_cash" && <><Field label="Absolute floor"><MoneyInput value={Number(p.absoluteFloor ?? 0)} onChange={(x) => setP("absoluteFloor", x ?? 0)} /></Field><Field label="Must stay idle for (days)"><input type="number" min={0} value={Number(p.minIdleDays ?? 30)} disabled={!canWrite} onChange={(e) => setP("minIdleDays", Number(e.target.value))} /></Field></>}
       </div>
       <dl className="dl small" style={{ marginTop: 10 }}><dt>Calculation</dt><dd>{def.calc}</dd><dt>Trigger</dt><dd>{def.trigger}</dd><dt>Response</dt><dd>{def.response}</dd><dt>Last evaluated</dt><dd>{cfg.lastEvaluatedAt ? fmtDateTime(cfg.lastEvaluatedAt) : "—"}</dd><dt>Now</dt><dd>{res.summary}</dd></dl>
-      {dirty && canWrite && <div className="row" style={{ marginTop: 10 }}><button className="btn primary" onClick={save}>Save & re-evaluate</button><button className="btn" onClick={() => { setV({ enabled: cfg.enabled, value: cfg.value, severity: cfg.severity, params: cfg.params }); setErr(null); }}>Discard</button></div>}
+      {dirty && canWrite && <div className="row" style={{ marginTop: 10 }}><button type="button" className="btn primary" onClick={save}>Save & re-evaluate</button><button type="button" className="btn" onClick={() => { setV({ enabled: cfg.enabled, value: cfg.value, severity: cfg.severity, params: cfg.params }); setErr(null); }}>Discard</button></div>}
     </Card>
   );
 }
@@ -206,8 +218,8 @@ function SettingsTab() {
     <div className="stack">
       <Card title="Financial-health score weights" subtitle="Weights are re-normalised across assessed components, so they don’t have to add to 100.">
         <div className="form-grid">{(Object.keys(w) as Array<keyof HealthWeights>).map((k) => <Field key={k} label={HEALTH_LABELS[k]}><input type="number" min={0} max={100} value={w[k]} disabled={!canWrite} onChange={(e) => setW({ ...w, [k]: Number(e.target.value) })} /></Field>)}</div>
-        <div className="row" style={{ marginTop: 10 }}><span className="small muted">Total {totalW} {totalW === 100 ? "" : "(shares are computed as weight ÷ total)"}</span><button className="btn primary" disabled={!canWrite || totalW <= 0} onClick={() => patch({ healthWeights: w }, "Weights saved — score recalculated")}>Save weights</button><button className="btn" onClick={() => setW({ net_worth: 20, cash_flow: 20, emergency: 20, debt: 15, diversification: 15, insurance: 10 })}>Reset to default</button></div>
-        <div className="row" style={{ marginTop: 14 }}><b className="small">Score bands (minimum score → label)</b>{bands.map((b, i) => <span key={i} className="row" style={{ gap: 4 }}><input aria-label={`Band ${i + 1} minimum`} type="number" min={0} max={100} value={b.min} onChange={(e) => setBands(bands.map((x, j) => (j === i ? { ...x, min: Number(e.target.value) } : x)))} style={{ width: 64 }} disabled={i === 0 || !canWrite} /><input aria-label={`Band ${i + 1} label`} value={b.label} onChange={(e) => setBands(bands.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} style={{ width: 130 }} disabled={!canWrite} /></span>)}<button className="btn sm" disabled={!canWrite} onClick={() => patch({ scoreBands: bands }, "Bands saved")}>Save bands</button></div>
+        <div className="row" style={{ marginTop: 10 }}><span className="small muted">Total {totalW} {totalW === 100 ? "" : "(shares are computed as weight ÷ total)"}</span><button type="button" className="btn primary" disabled={!canWrite || totalW <= 0} onClick={() => patch({ healthWeights: w }, "Weights saved — score recalculated")}>Save weights</button><button type="button" className="btn" onClick={() => setW({ net_worth: 20, cash_flow: 20, emergency: 20, debt: 15, diversification: 15, insurance: 10 })}>Reset to default</button></div>
+        <div className="row" style={{ marginTop: 14 }}><b className="small">Score bands (minimum score → label)</b>{bands.map((b, i) => <span key={i} className="row" style={{ gap: 4 }}><input aria-label={`Band ${i + 1} minimum`} type="number" min={0} max={100} value={b.min} onChange={(e) => setBands(bands.map((x, j) => (j === i ? { ...x, min: Number(e.target.value) } : x)))} style={{ width: 64 }} disabled={i === 0 || !canWrite} /><input aria-label={`Band ${i + 1} label`} value={b.label} onChange={(e) => setBands(bands.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} style={{ width: 130 }} disabled={!canWrite} /></span>)}<button type="button" className="btn sm" disabled={!canWrite} onClick={() => patch({ scoreBands: bands }, "Bands saved")}>Save bands</button></div>
       </Card>
       <Card title="Thresholds & definitions">
         <div className="form-grid">
@@ -215,7 +227,7 @@ function SettingsTab() {
           <Field label="Stale-valuation limit (days)"><input type="number" min={1} value={stale} disabled={!canWrite} onChange={(e) => setStale(e.target.value)} /></Field>
           <Field label="Target life cover (× annual income)"><input type="number" min={0} value={mult} disabled={!canWrite} onChange={(e) => setMult(e.target.value)} /></Field>
         </div>
-        <div className="row" style={{ marginTop: 10 }}><button className="btn primary" disabled={!canWrite} onClick={() => patch({ emergencyMonthsTarget: Number(months), stalenessDays: Number(stale), insuranceLifeCoverMultiple: Number(mult) }, "Settings saved")}>Save</button></div>
+        <div className="row" style={{ marginTop: 10 }}><button type="button" className="btn primary" disabled={!canWrite} onClick={() => patch({ emergencyMonthsTarget: Number(months), stalenessDays: Number(stale), insuranceLifeCoverMultiple: Number(mult) }, "Settings saved")}>Save</button></div>
       </Card>
       <Card title="Savings-rate definition" subtitle="Savings rate = (income − spending) ÷ income. Tick the categories that count as saving (not spending).">
         <div className="row">{cats.filter((c) => !(INCOME_CATEGORIES as readonly string[]).includes(c)).map((c) => <label key={c} className="check"><input type="checkbox" disabled={!canWrite} checked={st.savingsExcludedCategories.includes(c as never)} onChange={() => patch({ savingsExcludedCategories: st.savingsExcludedCategories.includes(c as never) ? st.savingsExcludedCategories.filter((x) => x !== c) : [...st.savingsExcludedCategories, c] }, "Savings definition updated")} />{CASHFLOW_LABEL[c as keyof typeof CASHFLOW_LABEL]}</label>)}</div>

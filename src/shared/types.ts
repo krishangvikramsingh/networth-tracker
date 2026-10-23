@@ -1,5 +1,6 @@
 import type { Paise } from "./money";
 import type { ISODate } from "./dates";
+import type { Nominee, Nomination } from "./estate";
 import type {
   AssetClass, InstrumentType, LiquidityTier, LiabilityType, CashflowCategory, DataStatus,
 } from "./taxonomy";
@@ -101,7 +102,7 @@ export type RuleKey =
   | "equity_allocation_max" | "single_stock_max" | "debt_allocation_min" | "net_worth_decline" | "emi_to_income_max"
   | "portfolio_drift_max" | "idle_cash" | "maturity_window"
   | "credit_card_balance" | "debt_to_net_worth" | "negative_cash_flow" | "emergency_fund_min" | "pension_premium_window"
-  | "missing_valuation" | "unclassified_holdings" | "stale_data" | "goal_shortfall" | "health_score_drop";
+  | "missing_valuation" | "unclassified_holdings" | "stale_data" | "goal_shortfall" | "health_score_drop" | "nomination_gap";
 
 export interface HealthWeights {
   net_worth: number; cash_flow: number; emergency: number; debt: number; diversification: number; insurance: number;
@@ -151,5 +152,7 @@ export interface ClientData {
   rules: RuleConfig[];
   mappings: CategoryMapping[];
   valuations: Valuation[];
+  nominees: Nominee[];
+  nominations: Nomination[];
   scoreHistory: Array<{ date: ISODate; score: number; coverage: number }>;
 }

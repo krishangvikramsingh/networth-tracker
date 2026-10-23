@@ -2,7 +2,6 @@ import ExcelJS from "exceljs";
 import type { ClientData } from "../shared/types";
 import type { Evaluation } from "../shared/evaluate";
 import { ASSET_CLASS_LABEL, CASHFLOW_LABEL, INSTRUMENT_LABEL, LIABILITY_LABEL, LIQUIDITY_LABEL } from "../shared/taxonomy";
-import { formatCompact } from "../shared/money";
 import type { AlertRow } from "./alerts";
 import { summaryLines } from "../shared/summary";
 export { summaryLines };

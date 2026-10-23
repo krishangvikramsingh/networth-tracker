@@ -17,4 +17,9 @@
 | Nominee data | Names, relationships and an optional contact line only. The page tells users not to enter passwords or PINs. Like all client data it is visible to every signed-in user (single-tenant). |
 | Backup & recovery | SQLite file `data/networth.db` (WAL). Back up with `sqlite3 data/networth.db ".backup backup.db"` while running, or copy the file when stopped; restore by replacing the file. Demo state can be restored from the UI |
 
-**Not production-ready:** single-tenant (every user sees every client), demo credentials, no MFA, no rate limit beyond login, no encryption at rest, no automated backups, no TLS termination (put behind a reverse proxy).
+| Tenant isolation | Every user and client has a `tenant_id`. A single `app.param("cid")` guard runs before every client-scoped route, so a new route cannot forget it; a client in another tenant answers exactly like a nonexistent one (no id probing). Beyond the route guard: the client list, notification log, email recipients and the attention queue are tenant-scoped; demo reset and shared market data are operator-only. `tests/tenancy.test.ts` sweeps every `:cid` route, for every method, from other tenants (and from the operator) and asserts a 404 with no database writes. |
+| Reads | GET handlers do not write (a SQL spy test covers every GET route). The one exception is CSV export, which records an audit entry. |
+| Login throttle, idempotency | Stored in the database, so they survive restarts and apply across instances. Behind a proxy set `TRUST_PROXY`. |
+| Transactions | Per-connection depth with savepoints; async callbacks are refused. |
+
+**Not production-ready:** tenant isolation is application-level (a shared database, no row-level security); no MFA, password reset, email verification or account lockout beyond the login throttle; no encryption at rest; no automated backups; no TLS termination (put behind a reverse proxy); no external penetration test; shared market data is operator-only but not yet licensed (see `docs/MARKET_DATA.md`).

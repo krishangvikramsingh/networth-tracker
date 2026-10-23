@@ -25,6 +25,10 @@ export function requireClient(db: DB, cid: string): ClientData {
   return d;
 }
 
+/**
+ * Re-evaluate a client AND reconcile the persisted alert history. This writes, so it belongs in mutation handlers and the
+ * scheduled job (jobs.ts) only. Reads use buildState, which never writes.
+ */
 export function refresh(db: DB, cid: string, asOf = asOfDate()): { data: ClientData; ev: Evaluation } {
   const data = requireClient(db, cid);
   const ev = evaluateClient(data, asOf);
@@ -32,8 +36,17 @@ export function refresh(db: DB, cid: string, asOf = asOfDate()): { data: ClientD
   return { data: requireClient(db, cid), ev };
 }
 
+/** Reconcile every client (used at start-up and on a timer, so date-driven alerts such as stale data appear without anyone editing). */
+export function reconcileAll(db: DB, asOf = asOfDate()): number {
+  const ids = (db.prepare("SELECT id FROM clients").all() as Array<{ id: string }>).map((r) => r.id);
+  for (const id of ids) refresh(db, id, asOf);
+  return ids.length;
+}
+
+/** Read-only: evaluates fresh figures and returns the alert history exactly as last reconciled. Performs no writes. */
 export function buildState(db: DB, cid: string) {
-  const { data, ev } = refresh(db, cid);
+  const data = requireClient(db, cid);
+  const ev = evaluateClient(data, asOfDate());
   return { data, evaluation: ev, alerts: listAlerts(db, cid), serverTime: nowISO(), asOf: ev.asOf };
 }
 

@@ -52,6 +52,7 @@ export function syncAlerts(db: DB, clientId: string, ev: Evaluation, now = nowIS
             .run(f.kind, sev, f.currentLabel, f.thresholdLabel, f.why, f.action, f.effect ?? null, JSON.stringify(f.records), f.provisional ? 1 : 0, now, ex.id);
           db.prepare("INSERT INTO alert_events (id, alert_id, at, event, detail) VALUES (?,?,?,?,?)").run(uid("ae"), ex.id, now, "changed", `${ex.current_label} → ${f.currentLabel}`);
           counts.changed++;
+          if (ORDER.indexOf(sev) > ORDER.indexOf(ex.severity)) requeueEscalation(db, clientId, ex.id, sev, now);
         } else db.prepare("UPDATE alerts SET last_seen_at = ? WHERE id = ?").run(now, ex.id);
       }
     }
@@ -69,6 +70,13 @@ export function syncAlerts(db: DB, clientId: string, ev: Evaluation, now = nowIS
     }
   });
   return counts;
+}
+
+/** A live alert became more severe: send it again to everyone eligible, including people who got the milder version. Never on a decrease. */
+function requeueEscalation(db: DB, clientId: string, alertId: string, severity: Severity, now: string) {
+  db.prepare("DELETE FROM notification_deliveries WHERE notification_id IN (SELECT id FROM notifications WHERE alert_id = ?)").run(alertId);
+  const r = db.prepare("UPDATE notifications SET status='pending', severity=?, reason='escalated', note=NULL, processed_at=NULL, created_at=? WHERE alert_id=?").run(severity, now, alertId);
+  if (!r.changes) db.prepare("INSERT INTO notifications (id, alert_id, client_id, severity, reason, created_at) VALUES (?,?,?,?,'escalated',?)").run(uid("nt"), alertId, clientId, severity, now);
 }
 
 export function listAlerts(db: DB, clientId: string, opts: { limit?: number } = {}): AlertRow[] {

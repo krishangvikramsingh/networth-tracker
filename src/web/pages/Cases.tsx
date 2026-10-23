@@ -60,7 +60,7 @@ export function CasesPage() {
         </ChartCard>
 
         <Tabs value={sel} onChange={setSel} tabs={IDS.map((id) => ({ id, label: SHORT[id] }))} />
-        <div className="row between"><div><h2>{d.client.name}</h2><p className="small sec">{d.client.description}</p></div><button className="btn" onClick={() => setClientId(d.client.id)}>Open as client to edit assumptions →</button></div>
+        <div className="row between"><div><h2>{d.client.name}</h2><p className="small sec">{d.client.description}</p></div><button type="button" className="btn" onClick={() => setClientId(d.client.id)}>Open as client to edit assumptions →</button></div>
         <Banner>{d.settings.profileNote}</Banner>
         <div className="grid g3">
           <Card title="Assets"><table className="tbl"><tbody>{d.holdings.filter((h) => !h.archived).map((h) => <tr key={h.id}><td>{h.name}</td><td className="r num">{formatCompact(h.currentValue)}</td></tr>)}<tr><td><b>Total</b></td><td className="r num"><b>{formatCompact(nw.grossAssets)}</b></td></tr></tbody></table></Card>

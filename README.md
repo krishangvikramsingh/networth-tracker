@@ -33,10 +33,11 @@ Override with the `DEMO_*` variables in `.env.example`. In production mode rando
 
 | Command | What it does |
 |---|---|
-| `npm test` | 217 unit + API integration tests (engine, rules at/below/above thresholds, persistence, auth, import, reset, risk profile, nominees, email alerts) |
+| `npm test` | 301 unit + API integration tests (engine, rules at/below/above thresholds, persistence, auth, import, reset, risk profile, nominees, email alerts, read-only GETs, tenant isolation, OpenAPI) |
 | `npm run typecheck` | `tsc --noEmit` over server, shared engine, UI and tests |
+| `npm run lint` | Biome lint (correctness and suspicious-code rules; formatting is not enforced) |
 | `npm run build` | production UI bundle in `dist/web` |
-| `npm run test:e2e` | Playwright/Chromium walkthrough against a running server (48 checks incl. mobile width, service worker and offline). It edits data, so point it at a throwaway database (see below) |
+| `npm run test:e2e` | Playwright/Chromium walkthrough against a running server (56 checks incl. mobile width, service worker and offline). It edits data, so point it at a throwaway database (see below) |
 | `npm run seed` | not needed — seeding is automatic on an empty database |
 
 End-to-end run on a throwaway database (never against data you care about):
@@ -55,6 +56,22 @@ BASE=http://127.0.0.1:8799 npm run test:e2e
 | **Nominees & estate readiness** | `/nominees`, `src/shared/estate.ts` | Nominee registry plus per-asset shares that must total 100%. "Not recorded" is shown as unknown, not as "no nominee". No passwords or credentials are stored. |
 | **Installable app (PWA)** | `src/web/public/` | Manifest, icons, service worker. The worker caches the app shell only and **never `/api`**, so no financial data is stored on the device. Offline, the app says it cannot reach the server instead of showing a sign-in form. Regenerate icons with `node scripts/make-icons.mjs`. |
 | **Email alerts** | `/notifications`, `src/server/notify.ts` | Opt-in per user, minimum severity, one digest per client. New alerts are queued in the database and sent by a background job, never inside a request. Without `SMTP_HOST` the messages go to a local outbox. Emails omit figures unless `NOTIFY_INCLUDE_DETAILS=1`. |
+
+### More features
+
+| Feature | Where | Notes |
+|---|---|---|
+| **All clients** | `/clients`, `src/server/overview.ts` | One row per client: gross assets, net worth (or "Awaiting data"), health score, open alerts by severity, nomination coverage, risk profile; plus an attention queue of the most severe open alerts. Read-only. |
+| **Nomination-gap alert** | rule `nomination_gap` | Triggers when fully-nominated value falls below a threshold (default 100%, info severity). Shows "Awaiting data" until any nominee information exists. |
+| **Escalation emails** | `src/server/alerts.ts` | When an existing alert becomes more severe it is emailed again (including to people who got the milder one). Never on a decrease. |
+| **Organisations (tenants)** | migration 007 | Every user and client belongs to a tenant. One guard on every `:cid` route; other tenants get the same 404 as a nonexistent client. Create a user in a tenant: `NEW_USER_PASSWORD=... npm run user:create -- you@firm.com "Your Name" admin firm-a`. The `default` tenant is the platform operator (owns demo data and shared market prices). |
+| **API reference** | `/api/docs`, `/api/docs/openapi.json` | OpenAPI 3.1 generated from the live route table and the zod validators, so it cannot drift. |
+
+### Operations
+
+* **Reads never write.** `GET /api/clients/:id/state` only evaluates and reports. Alert history is reconciled by mutations and by a background job (`RECONCILE_INTERVAL_SECONDS`, default 300; also at start-up).
+* **Docker:** `docker compose up --build` (SQLite on a volume, bound to localhost). Put a TLS-terminating proxy in front and set `TRUST_PROXY=1`.
+* **CI:** `.github/workflows/ci.yml` runs typecheck, tests, build, e2e, `npm audit`, a secret scan and a Docker build on every push.
 
 ## Demonstration
 

@@ -85,6 +85,9 @@ erDiagram
 * **Aggregate vs underlying:** `parent_id` self-reference; the engine replaces an aggregate by its children and keeps an *unallocated remainder*, so nothing is double counted.
 * **Unknown ≠ zero:** unresolved classifications produce `[min,max]` bounds; rules return `triggered | possible | not_evaluable | ok | disabled`.
 * **Alert history:** unique partial index `(client_id, fingerprint) WHERE status != 'resolved'` makes duplicate live alerts impossible at the database level.
+* **Reads never write.** `buildState` evaluates and returns stored alerts. `refresh` (evaluate **and** reconcile alert history) runs in mutation handlers and in `jobs.ts`. **Every mutation that can change an evaluation must call `refresh`**; a test found a missed one (nominees) when this rule was introduced.
+* **Tenancy:** `users.tenant_id` and `clients.tenant_id`; one `app.param("cid")` guard (see SECURITY.md). Global reference data (market prices, default category mappings) is shared and operator-managed.
+* **Runtime state in the database:** login attempts and idempotency keys (migration 005), so restarts and multiple instances behave the same.
 * **Demo isolation:** fixtures flagged `is_demo`; reset only deletes/re-inserts fixture clients (Priya + 3 cases).
 * **Notifications:** `syncAlerts` inserts one pending `notifications` row per new alert (no I/O). `dispatchNotifications` (run by a timer in `index.ts`, or on demand) groups by recipient and client, retries failures up to 3 times and records each delivery, so request handlers never wait on a mail server.
 * **Risk profile and nominees** are standalone modules (`risk.ts`, `estate.ts`) with their own tables; the pure scoring and coverage logic is in `src/shared/riskprofile.ts` and `src/shared/estate.ts`.

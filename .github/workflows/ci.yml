@@ -1,0 +1,55 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: { node: ["22.13.0", "24"] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ matrix.node }}", cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Install Chromium for the browser tests
+        run: npx playwright-core install --with-deps chromium
+      - name: End-to-end (throwaway database)
+        env: { DATABASE_PATH: "${{ runner.temp }}/e2e.db", PORT: "8799", NOTIFY_INTERVAL_SECONDS: "0", RECONCILE_INTERVAL_SECONDS: "0" }
+        run: |
+          node --import tsx src/server/index.ts > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8799/api/health && break; sleep 1; done
+          BASE=http://127.0.0.1:8799 npm run test:e2e
+      - if: failure()
+        run: cat "$RUNNER_TEMP/server.log" || true
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24", cache: npm }
+      - run: npm ci
+      - name: Dependency vulnerabilities (high and above)
+        run: npm audit --audit-level=high
+      - name: Hard-coded secrets (private keys, tokens)
+        run: |
+          if grep -rEn --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' -e 'AKIA[0-9A-Z]{16}' -e 'gh[pousr]_[A-Za-z0-9]{36,}' -e 'sk-[A-Za-z0-9]{32,}' .; then echo "Possible secret committed"; exit 1; fi
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t networth-tracker .
+      - name: Start it and wait for the health check
+        run: |
+          docker run -d --name nw -p 8787:8787 -e DEMO_ADMIN_PASSWORD=ci-only-password-1 -e DEMO_VIEWER_PASSWORD=ci-only-password-2 networth-tracker
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:8787/api/health && exit 0; sleep 1; done
+          docker logs nw; exit 1

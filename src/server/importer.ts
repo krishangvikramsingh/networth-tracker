@@ -68,10 +68,10 @@ export async function parseXLSX(buf: Buffer): Promise<string[][]> {
 }
 
 function toDate(s: string | undefined): string | null | undefined {
-  if (!s || !s.trim()) return null;
+  if (!s?.trim()) return null;
   const t = s.trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
-  const m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(t); // dd/mm/yyyy (Indian convention)
+  const m = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/.exec(t); // dd/mm/yyyy (Indian convention)
   if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   return undefined; // invalid
 }
@@ -94,6 +94,7 @@ export async function runImport(db: DB, cid: string, kind: ImportKind, content: 
   const money = (s: string): number | null | undefined => { if (!s) return null; const m = parseMoneyInput(s); return m == null ? undefined : m; };
   const pending: Array<{ body: any; idx: number }> = [];
 
+  // biome-ignore lint/suspicious/useIterableCallbackReturn: `return rej(...)` is an early exit for this row (rej returns nothing)
   raw.slice(1).forEach((row, i) => {
     const line = i + 2; report.total++;
     const name = get(row, "name");

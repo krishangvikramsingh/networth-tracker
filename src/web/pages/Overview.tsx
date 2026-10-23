@@ -4,7 +4,7 @@ import { useApp } from "../store";
 import { Badge, Banner, Card, DataTable, Empty, Icon, ICONS, Kpi, Modal, PageHead, SevBadge, Segmented, classColor, classLabel, fmtDate } from "../ui";
 import { BarsChart, ChartCard, Donut, Meter, SimpleBars, TrendChart } from "../charts";
 import { formatCompact, formatINR, formatPct, pct } from "@shared/money";
-import { ASSET_CLASSES, type AssetClass, type Denominator } from "@shared/taxonomy";
+import { ASSET_CLASSES, type Denominator } from "@shared/taxonomy";
 import { monthLabel } from "@shared/dates";
 import { AddButton, ClassBadge, useSnapshot } from "./common";
 import { EntityForm } from "../forms";
@@ -13,7 +13,7 @@ type KpiKey = "gross" | "liab" | "nw" | "change" | "ret" | "xirr" | "invested" |
 const SEV_ORDER = { critical: 0, high: 1, warning: 2, info: 3 } as const;
 
 export function Overview() {
-  const { state, clientId } = useApp();
+  const { state, canWrite } = useApp();
   const nav = useNavigate();
   const snap = useSnapshot();
   const [open, setOpen] = useState<KpiKey>(null);
@@ -50,7 +50,7 @@ export function Overview() {
   return (
     <>
       <PageHead title={`Wealth overview — ${d.client.name}`} subtitle={d.settings.profileNote ?? "Live view of assets, liabilities, cash flow and rule status. Missing information is shown as “Awaiting data” — never as zero."}
-        actions={<><button className="btn" onClick={snap} disabled={!useApp().canWrite}><Icon d={ICONS.cal} />Record snapshot</button></>} />
+        actions={<button type="button" className="btn" onClick={snap} disabled={!canWrite}><Icon d={ICONS.cal} />Record snapshot</button>} />
 
       {(nw.liabilitiesStatus !== "complete" || ev.completeness.percent < 100) && d.client.kind === "live" && (
         <div style={{ marginBottom: 16 }}><Banner tone="warn" title={`Data completeness ${ev.completeness.percent.toFixed(0)}%.`}>
@@ -93,7 +93,7 @@ export function Overview() {
 
         <div className="grid g2">
           <ChartCard title="Net-worth trend" subtitle="From recorded month-end snapshots only — no estimated history." height={250}
-            empty={!hasTrend ? <Empty title="No history yet" action={<button className="btn primary" onClick={snap}><Icon d={ICONS.cal} />Record today's snapshot</button>}>Historical net worth is never fabricated. Record a snapshot each month-end (or enter earlier ones from the Data collection page) to build the trend.</Empty> : undefined}
+            empty={!hasTrend ? <Empty title="No history yet" action={<button type="button" className="btn primary" onClick={snap}><Icon d={ICONS.cal} />Record today's snapshot</button>}>Historical net worth is never fabricated. Record a snapshot each month-end (or enter earlier ones from the Data collection page) to build the trend.</Empty> : undefined}
             table={{ headers: ["Month", "Gross assets", "Net worth"], rows: trend.map((t) => [t.label, formatCompact(t.assets), t.nw == null ? "n/a" : formatCompact(t.nw)]) }}>
             <TrendChart data={trend} area series={[{ key: "assets", label: "Gross assets", color: "var(--s1)" }, { key: "nw", label: "Net worth", color: "var(--s3)" }]} />
           </ChartCard>
@@ -157,7 +157,7 @@ export function Overview() {
           <Card title="Alerts & recommended actions" actions={<Link className="small" to="/alerts">All alerts ({alerts.length})</Link>} pad={false}>
             {real.length === 0 ? <div className="card-b"><Empty title="No rule breaches right now">{gaps.length ? `${gaps.length} data notice(s) need information before some rules can run.` : "All evaluable rules are within limits."}</Empty></div>
               : real.slice(0, 6).map((a) => (
-                <button key={a.id} className="alert-row" onClick={() => nav(`/alerts?open=${a.id}`)}>
+                <button type="button" key={a.id} className="alert-row" onClick={() => nav(`/alerts?open=${a.id}`)}>
                   <span className={`sev ${a.severity}`} />
                   <span><b>{a.ruleName}</b> <span className="muted">· {a.subject}</span>{a.kind === "possible" && <> <Badge tone="warn">possible</Badge></>}<div className="small sec">{a.why}</div><div className="small" style={{ marginTop: 3 }}><b>Action:</b> {a.action}</div></span>
                   <span className="right"><SevBadge s={a.severity} /><div className="small muted num" style={{ marginTop: 4 }}>{a.currentLabel}</div></span>
@@ -187,10 +187,10 @@ function KpiDrawer({ k, onClose }: { k: Exclude<KpiKey, null>; onClose: () => vo
       { key: "c", label: "Class", render: (l) => <span className="small">{l.assetClass ? classLabel(l.assetClass) : "Needs review"}</span> },
       { key: "v", label: "Value", right: true, render: (l) => formatCompact(l.value), sort: (l) => l.value }]} />);
   return (
-    <Modal drawer title={T[k]} onClose={onClose} footer={<button className="btn" onClick={onClose}>Close</button>}>
+    <Modal drawer title={T[k]} onClose={onClose} footer={<button type="button" className="btn" onClick={onClose}>Close</button>}>
       {k === "gross" && <><p className="sec small" style={{ marginBottom: 10 }}>Unique, in-scope positions. Aggregates are replaced by their underlying records, so nothing is counted twice.</p>{holdingsTable(pf.lines)}
         {pf.reconciliation.length > 0 && <div style={{ marginTop: 12 }}><Banner tone="info" title="Reconciliation.">{pf.reconciliation.map((r) => `${r.parentName}: ${formatCompact(r.childrenValue)} entered of ${formatCompact(r.aggregateValue)} (${r.kind === "unallocated_remainder" ? `${formatCompact(r.difference)} still unallocated` : `underlying exceeds aggregate by ${formatCompact(r.difference)}`})`).join("; ")}</Banner></div>}</>}
-      {k === "liab" && (d.liabilities.length === 0 ? <Empty title="No liabilities recorded" action={<button className="btn primary" onClick={() => nav("/assets?tab=liabilities")}>Record liabilities</button>}>This is not the same as “no debt”. Net worth stays uncalculated until you add loans/cards or mark the list complete.</Empty>
+      {k === "liab" && (d.liabilities.length === 0 ? <Empty title="No liabilities recorded" action={<button type="button" className="btn primary" onClick={() => nav("/assets?tab=liabilities")}>Record liabilities</button>}>This is not the same as “no debt”. Net worth stays uncalculated until you add loans/cards or mark the list complete.</Empty>
         : <table className="tbl"><tbody>{d.liabilities.filter((l) => !l.archived).map((l) => <tr key={l.id}><td>{l.name}</td><td className="r num">{formatCompact(l.outstanding)}</td></tr>)}<tr><td><b>Total</b></td><td className="r num"><b>{formatCompact(nw.liabilities)}</b></td></tr></tbody></table>)}
       {k === "nw" && <dl className="dl"><dt>Gross assets</dt><dd className="num">{formatINR(nw.grossAssets)}</dd><dt>Confirmed liabilities</dt><dd className="num">{nw.liabilitiesStatus === "not_assessed" ? "Not assessed" : formatINR(nw.liabilities)}</dd><dt>Net worth</dt><dd className="num"><b>{nw.netWorth == null ? "Awaiting data" : formatINR(nw.netWorth)}</b></dd>
         <dt>Remaining commitments</dt><dd className="num">{formatINR(nw.commitmentsRemaining)}</dd><dt>Adjusted net worth</dt><dd className="num">{nw.adjustedNetWorth == null ? "Awaiting data" : formatINR(nw.adjustedNetWorth)}</dd></dl>}

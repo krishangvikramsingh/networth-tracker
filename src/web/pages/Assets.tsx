@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../store";
-import { Badge, Banner, Card, DataTable, Empty, Field, Icon, ICONS, Modal, PageHead, Segmented, Tabs, classColor, fmtDate, type Col } from "../ui";
+import { Badge, Banner, Card, DataTable, Empty, Icon, ICONS, Modal, PageHead, Segmented, Tabs, fmtDate, type Col } from "../ui";
 import { formatCompact, formatINR, formatPct, pct, sum } from "@shared/money";
-import { ASSET_CLASSES, ASSET_CLASS_LABEL, CASHFLOW_LABEL, INSTRUMENT_LABEL, INSTRUMENT_TYPES, LIABILITY_LABEL, LIQUIDITY_LABEL, DATA_STATUS_LABEL } from "@shared/taxonomy";
+import { ASSET_CLASSES, ASSET_CLASS_LABEL, INSTRUMENT_LABEL, INSTRUMENT_TYPES, LIABILITY_LABEL, LIQUIDITY_LABEL, DATA_STATUS_LABEL } from "@shared/taxonomy";
 import type { Holding, Liability, Commitment, InsurancePolicy, Transaction } from "@shared/types";
 import { EntityForm, type EntityName } from "../forms";
 import { AddButton, ClassBadge } from "./common";
@@ -83,7 +83,7 @@ function AssetsTab({ onEdit, onAdd, onDetail }: { onEdit: (h: Holding) => void; 
 
   const cols: Col<Holding & { depth: number }>[] = [
     { key: "n", label: "Holding", sort: (h) => h.name, render: (h) => (
-      <div style={{ paddingLeft: h.depth * 18 }}><a href="#" onClick={(e) => { e.preventDefault(); onDetail(h); }}><b>{h.depth ? "↳ " : ""}{h.name}</b></a>
+      <div style={{ paddingLeft: h.depth * 18 }}><button type="button" className="linkbtn" onClick={() => onDetail(h)}><b>{h.depth ? "↳ " : ""}{h.name}</b></button>
         <div className="small muted">{INSTRUMENT_LABEL[h.instrumentType]}{h.account ? ` · ${h.account}` : ""}{h.isAggregate && <> · <Badge tone="info">aggregate</Badge></>}{h.parentId && <> · <Badge tone="outline">underlying</Badge></>}</div></div>) },
     { key: "c", label: "Category", render: (h) => <ClassBadge h={h} />, sort: (h) => eff(h) ?? "~" },
     { key: "v", label: "Market value", right: true, sort: (h) => h.currentValue, render: (h) => <div>{formatCompact(h.currentValue)}{byParent.has(h.id) && recon.get(h.id) && <div className="small muted">{recon.get(h.id)!.kind === "unallocated_remainder" ? `${formatCompact(recon.get(h.id)!.childrenValue)} split · ${formatCompact(recon.get(h.id)!.difference)} unallocated` : `underlying exceeds by ${formatCompact(recon.get(h.id)!.difference)}`}</div>}{byParent.has(h.id) && !recon.get(h.id) && <div className="small muted">fully split</div>}</div> },
@@ -95,9 +95,9 @@ function AssetsTab({ onEdit, onAdd, onDetail }: { onEdit: (h: Holding) => void; 
     { key: "s", label: "Status", render: (h) => <Badge tone={h.dataStatus === "collected" ? "good" : h.dataStatus === "needs_review" ? "serious" : h.dataStatus === "pending" ? "warn" : ""}>{DATA_STATUS_LABEL[h.dataStatus]}</Badge> },
     { key: "x", label: "", render: (h) => canWrite ? (
       <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
-        <button className="btn sm" onClick={() => onEdit(h)} aria-label={`Edit ${h.name}`}><Icon d={ICONS.edit} size={13} /></button>
-        {!h.parentId && (h.isAggregate || h.instrumentType === "mutual_fund_aggregate" || h.instrumentType === "pms" || h.instrumentType === "aif") && <button className="btn sm" onClick={() => onAdd({ parentId: h.id }, `Add underlying position of ${h.name}`)} title="Split this aggregate into underlying schemes / securities"><Icon d={ICONS.plus} size={13} />Underlying</button>}
-        <button className="btn sm" onClick={() => { if (confirm(`Archive "${h.name}"? It can be restored from the Archived tab.`)) run(() => api.del(`/api/clients/${clientId}/holdings/${h.id}`), "Archived"); }} aria-label={`Archive ${h.name}`}><Icon d={ICONS.trash} size={13} /></button>
+        <button type="button" className="btn sm" onClick={() => onEdit(h)} aria-label={`Edit ${h.name}`}><Icon d={ICONS.edit} size={13} /></button>
+        {!h.parentId && (h.isAggregate || h.instrumentType === "mutual_fund_aggregate" || h.instrumentType === "pms" || h.instrumentType === "aif") && <button type="button" className="btn sm" onClick={() => onAdd({ parentId: h.id }, `Add underlying position of ${h.name}`)} title="Split this aggregate into underlying schemes / securities"><Icon d={ICONS.plus} size={13} />Underlying</button>}
+        <button type="button" className="btn sm" onClick={() => { if (confirm(`Archive "${h.name}"? It can be restored from the Archived tab.`)) run(() => api.del(`/api/clients/${clientId}/holdings/${h.id}`), "Archived"); }} aria-label={`Archive ${h.name}`}><Icon d={ICONS.trash} size={13} /></button>
       </div>) : null },
   ];
   return (
@@ -116,7 +116,7 @@ function AssetsTab({ onEdit, onAdd, onDetail }: { onEdit: (h: Holding) => void; 
           <Segmented<GroupBy> label="Group by" value={group} onChange={setGroup} options={[{ id: "none", label: "None" }, { id: "class", label: "Category" }, { id: "instrument", label: "Instrument" }, { id: "account", label: "Account" }, { id: "institution", label: "Institution" }]} />
           {q && <Badge tone="info">search: {q}</Badge>}
         </div>
-        {all.length === 0 ? <Empty title="No holdings yet" action={canWrite ? <button className="btn primary" onClick={() => onAdd({})}>Add your first holding</button> : undefined}>Add holdings one by one or import a CSV/Excel file from Data collection.</Empty> :
+        {all.length === 0 ? <Empty title="No holdings yet" action={canWrite ? <button type="button" className="btn primary" onClick={() => onAdd({})}>Add your first holding</button> : undefined}>Add holdings one by one or import a CSV/Excel file from Data collection.</Empty> :
           groups.map((g) => (
             <div key={g.key || "all"} style={{ marginBottom: 14 }}>
               {group !== "none" && <div className="row between" style={{ margin: "6px 0" }}><b>{g.key}</b><span className="small muted num">{formatCompact(sum(g.rows.filter((r) => effValue(r) !== undefined).map((r) => r.currentValue)))}</span></div>}
@@ -140,7 +140,7 @@ function HoldingDetail({ id, onClose, onEdit, onAddUnder }: { id: string; onClos
   const recon = s.evaluation.portfolio.reconciliation.find((r) => r.parentId === id);
   const flow = (types: string[]) => sum(tx.filter((t) => types.includes(t.type)).map((t) => t.amount));
   return (
-    <Modal drawer title={h.name} onClose={onClose} footer={<>{canWrite && <button className="btn" onClick={() => onEdit(h)}>Edit</button>}<button className="btn" onClick={onClose}>Close</button></>}>
+    <Modal drawer title={h.name} onClose={onClose} footer={<>{canWrite && <button type="button" className="btn" onClick={() => onEdit(h)}>Edit</button>}<button type="button" className="btn" onClick={onClose}>Close</button></>}>
       <div className="stack">
         <dl className="dl">
           <dt>Instrument</dt><dd>{INSTRUMENT_LABEL[h.instrumentType]} {h.isAggregate && <Badge tone="info">aggregate</Badge>} {h.parentId && <Badge tone="outline">underlying</Badge>}</dd>
@@ -152,16 +152,16 @@ function HoldingDetail({ id, onClose, onEdit, onAddUnder }: { id: string; onClos
         <Card title="Classification" subtitle="Every record keeps its original description, result, method and status">
           <dl className="dl"><dt>Original description</dt><dd>{h.originalDescription}</dd><dt>Result</dt><dd><ClassBadge h={h} /></dd><dt>Method</dt><dd>{h.classificationMethod.replace("_", " ")} · {h.classificationStatus.replace("_", " ")}</dd><dt>Why</dt><dd>{h.classificationReason}</dd></dl>
           {canWrite && <div className="row" style={{ marginTop: 10 }}><select aria-label="Override category" value={cls} onChange={(e) => setCls(e.target.value)} style={{ width: "auto" }}><option value="">Automatic (no override)</option>{ASSET_CLASSES.map((c) => <option key={c} value={c}>{ASSET_CLASS_LABEL[c]}</option>)}</select>
-            <button className="btn" disabled={(cls || null) === h.classOverride} onClick={() => run(() => api.post(`/api/clients/${clientId}/holdings/${id}/override`, { assetClass: cls || null }), "Category override saved")}>Apply override</button></div>}
+            <button type="button" className="btn" disabled={(cls || null) === h.classOverride} onClick={() => run(() => api.post(`/api/clients/${clientId}/holdings/${id}/override`, { assetClass: cls || null }), "Category override saved")}>Apply override</button></div>}
         </Card>
         {(kids.length > 0 || h.isAggregate || ["pms", "aif", "mutual_fund_aggregate"].includes(h.instrumentType)) && !h.parentId && (
-          <Card title="Underlying positions" actions={canWrite ? <button className="btn sm" onClick={() => onAddUnder(h)}><Icon d={ICONS.plus} size={13} />Add</button> : undefined}>
+          <Card title="Underlying positions" actions={canWrite ? <button type="button" className="btn sm" onClick={() => onAddUnder(h)}><Icon d={ICONS.plus} size={13} />Add</button> : undefined}>
             {kids.length === 0 ? <p className="small sec">None entered. The aggregate stays at {formatCompact(h.currentValue)} and is counted once. As you add schemes/securities, they replace that amount; any difference stays as an “unallocated remainder”.</p> :
               <><table className="tbl"><tbody>{kids.map((k) => <tr key={k.id}><td>{k.name}</td><td><ClassBadge h={k} /></td><td className="r num">{formatCompact(k.currentValue)}</td></tr>)}</tbody></table>
                 <div className="small" style={{ marginTop: 8 }}>Underlying total <b className="num">{formatCompact(sum(kids.map((k) => k.currentValue)))}</b> of aggregate <b className="num">{formatCompact(h.currentValue)}</b>.</div></>}
             {recon && <div style={{ marginTop: 8 }}><Banner tone="warn" title="Needs reconciliation.">{recon.kind === "unallocated_remainder" ? `${formatCompact(recon.difference)} of the aggregate has no underlying position yet and is kept as “unallocated remainder” (still counted once).` : `Underlying positions exceed the aggregate by ${formatCompact(recon.difference)}. Confirm to set the aggregate to the underlying total.`}
-              {canWrite && recon.kind === "children_exceed_aggregate" && <> <button className="btn sm" onClick={() => run(() => api.post(`/api/clients/${clientId}/holdings/${id}/reconcile`), "Aggregate updated to underlying total")}>Confirm new total</button></>}
-              {canWrite && recon.kind === "unallocated_remainder" && kids.length > 0 && <> <button className="btn sm" onClick={() => { if (confirm("Set the aggregate value to the sum of the underlying positions? This lowers the aggregate by the unallocated amount.")) run(() => api.post(`/api/clients/${clientId}/holdings/${id}/reconcile`), "Aggregate updated to underlying total"); }}>Accept underlying total</button></>}</Banner></div>}
+              {canWrite && recon.kind === "children_exceed_aggregate" && <> <button type="button" className="btn sm" onClick={() => run(() => api.post(`/api/clients/${clientId}/holdings/${id}/reconcile`), "Aggregate updated to underlying total")}>Confirm new total</button></>}
+              {canWrite && recon.kind === "unallocated_remainder" && kids.length > 0 && <> <button type="button" className="btn sm" onClick={() => { if (confirm("Set the aggregate value to the sum of the underlying positions? This lowers the aggregate by the unallocated amount.")) run(() => api.post(`/api/clients/${clientId}/holdings/${id}/reconcile`), "Aggregate updated to underlying total"); }}>Accept underlying total</button></>}</Banner></div>}
           </Card>)}
         <Card title="Valuation history">{vals.length === 0 ? <p className="small muted">No dated valuations recorded.</p> : <table className="tbl"><tbody>{vals.slice(0, 12).map((v) => <tr key={v.id}><td>{fmtDate(v.date)}</td><td className="small muted">{v.source}{v.note ? ` · ${v.note}` : ""}</td><td className="r num">{formatCompact(v.value)}</td></tr>)}</tbody></table>}</Card>
         <Card title="Cash flows & gains" subtitle="Realised gains need a cost basis per sale; totals shown instead">
@@ -181,14 +181,14 @@ function LiabilitiesTab({ onEdit }: { onEdit: (l: Liability) => void }) {
   return (
     <div className="stack">
       {nw.liabilitiesStatus !== "complete" && <Banner tone="warn" title={nw.liabilitiesStatus === "not_assessed" ? "Liabilities not yet assessed." : "Liabilities partly recorded."}>
-        Net worth {nw.liabilitiesStatus === "not_assessed" ? "is not calculated" : "is provisional"} until every loan and card balance is entered. {canWrite && <>Once complete (or if there are none), <button className="btn sm" onClick={() => run(() => api.patch(`/api/clients/${clientId}/settings`, { liabilitiesStatus: "complete" }), "Marked liabilities as complete")}>mark the liability list complete</button></>}</Banner>}
-      {nw.liabilitiesStatus === "complete" && canWrite && <div><button className="btn sm" onClick={() => run(() => api.patch(`/api/clients/${clientId}/settings`, { liabilitiesStatus: rows.length ? "partial" : "not_assessed" }), "Re-opened liabilities")}>Re-open liabilities as incomplete</button></div>}
+        Net worth {nw.liabilitiesStatus === "not_assessed" ? "is not calculated" : "is provisional"} until every loan and card balance is entered. {canWrite && <>Once complete (or if there are none), <button type="button" className="btn sm" onClick={() => run(() => api.patch(`/api/clients/${clientId}/settings`, { liabilitiesStatus: "complete" }), "Marked liabilities as complete")}>mark the liability list complete</button></>}</Banner>}
+      {nw.liabilitiesStatus === "complete" && canWrite && <div><button type="button" className="btn sm" onClick={() => run(() => api.patch(`/api/clients/${clientId}/settings`, { liabilitiesStatus: rows.length ? "partial" : "not_assessed" }), "Re-opened liabilities")}>Re-open liabilities as incomplete</button></div>}
       <Card>
         <DataTable rows={rows} search={(l) => `${l.name} ${l.lender ?? ""} ${LIABILITY_LABEL[l.type]}`} defaultSort={{ key: "o", dir: -1 }} empty={<Empty title="No liabilities recorded">This does not mean you have no debt — add loans, EMIs and credit-card balances.</Empty>}
           cols={[{ key: "n", label: "Liability", sort: (l) => l.name, render: (l) => <div><b>{l.name}</b><div className="small muted">{LIABILITY_LABEL[l.type]}{l.lender ? ` · ${l.lender}` : ""}{l.isIllustrative && <> · <Badge tone="outline">illustrative</Badge></>}</div></div> },
             { key: "o", label: "Outstanding principal", right: true, sort: (l) => l.outstanding, render: (l) => formatCompact(l.outstanding) }, { key: "e", label: "EMI", right: true, sort: (l) => l.emi, render: (l) => l.type === "credit_card" ? <span className="muted small">n/a (card)</span> : l.emi ? formatCompact(l.emi) : "—" },
             { key: "r", label: "Rate", right: true, render: (l) => (l.rateBps == null ? "—" : `${(l.rateBps / 100).toFixed(2)}%`) }, { key: "m", label: "Months left", right: true, render: (l) => l.remainingMonths ?? "—" },
-            { key: "x", label: "", render: (l) => canWrite ? <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}><button className="btn sm" onClick={() => onEdit(l)} aria-label={`Edit ${l.name}`}><Icon d={ICONS.edit} size={13} /></button><button className="btn sm" aria-label={`Archive ${l.name}`} onClick={() => confirm(`Archive "${l.name}"?`) && run(() => api.del(`/api/clients/${clientId}/liabilities/${l.id}`), "Archived")}><Icon d={ICONS.trash} size={13} /></button></div> : null }]} />
+            { key: "x", label: "", render: (l) => canWrite ? <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}><button type="button" className="btn sm" onClick={() => onEdit(l)} aria-label={`Edit ${l.name}`}><Icon d={ICONS.edit} size={13} /></button><button type="button" className="btn sm" aria-label={`Archive ${l.name}`} onClick={() => confirm(`Archive "${l.name}"?`) && run(() => api.del(`/api/clients/${clientId}/liabilities/${l.id}`), "Archived")}><Icon d={ICONS.trash} size={13} /></button></div> : null }]} />
         {rows.length > 0 && <div className="row between" style={{ marginTop: 10 }}><b>Total confirmed outstanding</b><b className="num">{formatINR(nw.liabilities)}</b></div>}
       </Card>
       <p className="small muted">Credit-card outstanding balances are liabilities; they are not treated as EMIs, so a card balance and its repayment are never counted twice.</p>
@@ -207,7 +207,7 @@ function CommitmentsTab({ onEdit }: { onEdit: (c: Commitment) => void }) {
         { key: "t", label: "Total", right: true, render: (c) => formatCompact(c.totalAmount) }, { key: "p", label: "Paid", right: true, render: (c) => formatCompact(c.paidAmount) },
         { key: "r", label: "Contractual commitment remaining", right: true, render: (c) => <b>{formatCompact(c.totalAmount - c.paidAmount)}</b> },
         { key: "s", label: "Schedule", render: (c) => c.nextDueDate && c.installmentAmount ? <span className="small">{formatCompact(c.installmentAmount)} {c.frequency?.replace("_", "-")} from {fmtDate(c.nextDueDate)}</span> : <Badge tone="warn">schedule pending</Badge> },
-        { key: "x", label: "", render: (c) => canWrite ? <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}><button className="btn sm" onClick={() => onEdit(c)}><Icon d={ICONS.edit} size={13} /></button><button className="btn sm" onClick={() => confirm("Archive this commitment?") && run(() => api.del(`/api/clients/${clientId}/commitments/${c.id}`), "Archived")}><Icon d={ICONS.trash} size={13} /></button></div> : null }]} /></Card>
+        { key: "x", label: "", render: (c) => canWrite ? <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}><button type="button" className="btn sm" onClick={() => onEdit(c)}><Icon d={ICONS.edit} size={13} /></button><button type="button" className="btn sm" onClick={() => confirm("Archive this commitment?") && run(() => api.del(`/api/clients/${clientId}/commitments/${c.id}`), "Archived")}><Icon d={ICONS.trash} size={13} /></button></div> : null }]} /></Card>
     </div>
   );
 }
@@ -221,7 +221,7 @@ function InsuranceTab({ onEdit }: { onEdit: (p: InsurancePolicy) => void }) {
       <Card><DataTable rows={rows} empty={<Empty title="No policies recorded">Add life, health and other cover to enable the insurance score and renewal alerts.</Empty>} cols={[
         { key: "t", label: "Policy", render: (p) => <div><b>{p.insurer ?? "Policy"} — {p.type.replace("_", " ")}</b><div className="small muted">{p.policyNo ?? ""}</div></div> }, { key: "s", label: "Sum assured (cover)", right: true, render: (p) => (p.sumAssured ? formatCompact(p.sumAssured) : "—") },
         { key: "a", label: "Annual premium", right: true, render: (p) => (p.annualPremium ? formatCompact(p.annualPremium) : "—") }, { key: "n", label: "Next premium", render: (p) => fmtDate(p.nextPremiumDate) }, { key: "r", label: "Renewal", render: (p) => fmtDate(p.renewalDate) },
-        { key: "x", label: "", render: (p) => canWrite ? <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}><button className="btn sm" onClick={() => onEdit(p)}><Icon d={ICONS.edit} size={13} /></button><button className="btn sm" onClick={() => confirm("Archive this policy?") && run(() => api.del(`/api/clients/${clientId}/policies/${p.id}`), "Archived")}><Icon d={ICONS.trash} size={13} /></button></div> : null }]} /></Card>
+        { key: "x", label: "", render: (p) => canWrite ? <div className="row" style={{ gap: 4, flexWrap: "nowrap" }}><button type="button" className="btn sm" onClick={() => onEdit(p)}><Icon d={ICONS.edit} size={13} /></button><button type="button" className="btn sm" onClick={() => confirm("Archive this policy?") && run(() => api.del(`/api/clients/${clientId}/policies/${p.id}`), "Archived")}><Icon d={ICONS.trash} size={13} /></button></div> : null }]} /></Card>
     </div>
   );
 }
@@ -234,7 +234,7 @@ function TransactionsTab() {
     <Card><DataTable rows={[...d.transactions].sort((a, b) => b.date.localeCompare(a.date))} search={(t) => `${t.type} ${name.get(t.holdingId ?? "") ?? ""} ${t.notes ?? ""}`} defaultSort={{ key: "d", dir: -1 }}
       empty={<Empty title="No transactions recorded">Dated cash flows (purchases, contributions, withdrawals, dividends, fees) feed XIRR and the net-worth change analysis.</Empty>}
       cols={[{ key: "d", label: "Date", sort: (t) => t.date, render: (t) => fmtDate(t.date) }, { key: "t", label: "Type", render: (t) => t.type }, { key: "h", label: "Holding", render: (t) => name.get(t.holdingId ?? "") ?? "Whole portfolio" },
-        { key: "a", label: "Amount", right: true, sort: (t) => t.amount, render: (t) => formatINR(t.amount) }, { key: "x", label: "", render: (t: Transaction) => canWrite ? <button className="btn sm" aria-label="Delete transaction" onClick={() => confirm("Delete this transaction?") && run(() => api.del(`/api/clients/${clientId}/transactions/${t.id}`), "Deleted")}><Icon d={ICONS.trash} size={13} /></button> : null }]} /></Card>
+        { key: "a", label: "Amount", right: true, sort: (t) => t.amount, render: (t) => formatINR(t.amount) }, { key: "x", label: "", render: (t: Transaction) => canWrite ? <button type="button" className="btn sm" aria-label="Delete transaction" onClick={() => confirm("Delete this transaction?") && run(() => api.del(`/api/clients/${clientId}/transactions/${t.id}`), "Deleted")}><Icon d={ICONS.trash} size={13} /></button> : null }]} /></Card>
   );
 }
 
@@ -254,6 +254,6 @@ function ArchivedTab() {
   }, [clientId, tick, state?.serverTime]);
   return (
     <Card>{items.length === 0 ? <Empty title="Nothing archived" /> : <table className="tbl"><tbody>{items.map((i) => (
-      <tr key={i.id}><td>{i.name}</td><td className="muted">{i.entity}</td><td className="r">{canWrite && <button className="btn sm" onClick={async () => { await run(() => api.post(`/api/clients/${clientId}/${i.entity}/${i.id}/restore`), "Restored"); setTick(tick + 1); }}>Restore</button>}</td></tr>))}</tbody></table>}</Card>
+      <tr key={i.id}><td>{i.name}</td><td className="muted">{i.entity}</td><td className="r">{canWrite && <button type="button" className="btn sm" onClick={async () => { await run(() => api.post(`/api/clients/${clientId}/${i.entity}/${i.id}/restore`), "Restored"); setTick(tick + 1); }}>Restore</button>}</td></tr>))}</tbody></table>}</Card>
   );
 }

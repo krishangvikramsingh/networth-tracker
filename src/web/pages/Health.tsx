@@ -9,7 +9,7 @@ function Ring({ score, label, sub }: { score: number | null; label: string; sub:
   const color = score == null ? "var(--border-strong)" : score >= 80 ? "var(--good)" : score >= 60 ? "var(--s3)" : score >= 40 ? "var(--s4)" : "var(--s2)";
   return (
     <div style={{ position: "relative", width: 170, height: 170 }} role="img" aria-label={score == null ? "Score unavailable" : `Score ${score.toFixed(0)} out of 100, ${label}`}>
-      <svg width="170" height="170" viewBox="0 0 170 170"><circle cx="85" cy="85" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="14" /><circle cx="85" cy="85" r={r} fill="none" stroke={color} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${(v / 100) * c} ${c}`} transform="rotate(-90 85 85)" /></svg>
+      <svg width="170" height="170" viewBox="0 0 170 170" aria-hidden="true"><circle cx="85" cy="85" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="14" /><circle cx="85" cy="85" r={r} fill="none" stroke={color} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${(v / 100) * c} ${c}`} transform="rotate(-90 85 85)" /></svg>
       <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}><div><b className="num" style={{ fontSize: 36, letterSpacing: "-.03em" }}>{score == null ? "—" : score.toFixed(0)}</b><div className="small muted">/ 100</div><div style={{ fontWeight: 650, fontSize: 12, lineHeight: 1.2, maxWidth: 100, margin: "2px auto 0" }}>{label}</div><div className="small muted">{sub}</div></div></div>
     </div>
   );

@@ -33,16 +33,29 @@ export function migrate(db: DB) {
   }
 }
 
-/** Run fn inside a transaction (all-or-nothing multi-record updates). Re-entrant. */
-let depth = 0;
+/**
+ * Run fn inside a transaction (all-or-nothing multi-record updates). Re-entrant: the outermost call is a real transaction,
+ * nested calls are savepoints, so an inner failure that the caller catches rolls back only the inner work.
+ * Nesting depth is tracked per connection. fn must be synchronous: SQLite transactions are connection-wide, so awaiting
+ * inside one would let unrelated requests join it.
+ */
+const depths = new WeakMap<DB, number>();
 export function tx<T>(db: DB, fn: () => T): T {
-  if (depth > 0) return fn();
-  db.exec("BEGIN IMMEDIATE");
-  depth++;
-  try { const r = fn(); db.exec("COMMIT"); return r; }
-  catch (e) { db.exec("ROLLBACK"); throw e; }
-  finally { depth--; }
+  const d = depths.get(db) ?? 0, sp = `sp_${d}`;
+  db.exec(d === 0 ? "BEGIN IMMEDIATE" : `SAVEPOINT ${sp}`);
+  depths.set(db, d + 1);
+  try {
+    const r = fn();
+    if (r && typeof (r as { then?: unknown }).then === "function") throw new Error("tx() callbacks must be synchronous.");
+    db.exec(d === 0 ? "COMMIT" : `RELEASE ${sp}`);
+    return r;
+  } catch (e) {
+    db.exec(d === 0 ? "ROLLBACK" : `ROLLBACK TO ${sp}; RELEASE ${sp}`);
+    throw e;
+  } finally { depths.set(db, d); }
 }
 
+/** The tenant that owns the demo data and operates shared reference data (market prices). */
+export const DEFAULT_TENANT = "default";
 export const uid = (prefix: string) => `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 export const nowISO = () => new Date().toISOString();

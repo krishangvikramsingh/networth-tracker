@@ -3,7 +3,7 @@ import type { DB } from "./db";
 import { nowISO, tx, uid } from "./db";
 import { audit } from "./audit";
 import { HttpError, requireClient } from "./service";
-import { nominationCoverage, type Nomination, type Nominee } from "../shared/estate";
+import { nominationCoverage, type Nominee } from "../shared/estate";
 
 const text = (max: number) => z.string().trim().max(max);
 export const nomineeIn = z.object({
@@ -25,12 +25,10 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   return r.data;
 }
 const nomineeRow = (r: any): Nominee => ({ id: r.id, clientId: r.client_id, name: r.name, relationship: r.relationship, contact: r.contact, notes: r.notes });
-const nominationRow = (r: any): Nomination => ({ id: r.id, clientId: r.client_id, entity: r.entity, entityId: r.entity_id, nomineeId: r.nominee_id, shareBps: r.share_bps });
 
 export function loadEstate(db: DB, cid: string) {
   const data = requireClient(db, cid);
-  const nominees = (db.prepare("SELECT * FROM nominees WHERE client_id = ? ORDER BY rowid").all(cid) as any[]).map(nomineeRow);
-  const nominations = (db.prepare("SELECT * FROM nominations WHERE client_id = ? ORDER BY rowid").all(cid) as any[]).map(nominationRow);
+  const { nominees, nominations } = data;
   return { nominees, nominations, coverage: nominationCoverage(data.holdings, data.policies, nominees, nominations) };
 }
 

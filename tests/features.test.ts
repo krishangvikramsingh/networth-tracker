@@ -34,7 +34,7 @@ beforeAll(async () => {
   seedIfEmpty(db);
   server = createApp(db).listen(0);
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  resetThrottle();
+  resetThrottle(db);
   expect((await admin.login("advisor@demo.local", "Demo@2026-Advisor")).status).toBe(200);
   expect((await viewer.login("viewer@demo.local", "Demo@2026-Viewer")).status).toBe(200);
 });

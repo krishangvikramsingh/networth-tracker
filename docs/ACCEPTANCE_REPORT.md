@@ -1,13 +1,13 @@
 # Acceptance-test report
 
-Run on 2026-10-23 (Node 26.5, Chromium 1234). Quick-win features added: risk profile, nominees, PWA, email alerts. Commands: `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`.
+Run on 2026-10-23 (Node 26.5, Chromium 1234). Quick-win features added (risk profile, nominees, PWA, email alerts), then: read-only GETs, database-backed throttle/idempotency, savepoint transactions, escalation emails, nomination rule, tenant isolation, clients overview, OpenAPI, code splitting, Docker and CI. Commands: `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`.
 
 | Gate | Result |
 |---|---|
 | Type check (`tsc --noEmit`) | pass, 0 errors |
-| Unit + API tests (`vitest`) | **217 passed** across 7 files (engine 122 · Priya baseline 12 · API/integration 32 · market 5 · risk profile 14 · nominee coverage 8 · risk/nominee/notification API 24) |
+| Unit + API tests (`vitest`) | **301 passed** across 14 files (engine 122 · API/integration 32 · features API 24 · read-only GETs 22 · tenant isolation 18 · runtime state 15 · risk profile 14 · Priya baseline 12 · nomination rule 10 · estate 8 · clients overview 8 · OpenAPI 7 · market 5 · escalation 4) |
 | Production build | pass |
-| End-to-end browser walkthrough | **48 checks passed** (twice in a row on one database), no console errors |
+| End-to-end browser walkthrough | **56 checks passed** (twice in a row on one database), no console errors |
 | Launches from clean database | yes — migrations applied, fixtures seeded, demo users printed |
 
 ## Definition-of-done checklist

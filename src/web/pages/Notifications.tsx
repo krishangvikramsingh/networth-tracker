@@ -41,8 +41,8 @@ export function NotificationsPage() {
             <Field label="Email me about new alerts"><label className="check"><input type="checkbox" checked={form.emailEnabled} onChange={(e) => setForm({ ...form, emailEnabled: e.target.checked })} />Send email alerts</label></Field>
             <Field label="Lowest severity to email" hint="Critical is the quietest setting. Notice includes data-gap reminders."><select value={form.minSeverity} disabled={!form.emailEnabled} onChange={(e) => setForm({ ...form, minSeverity: e.target.value as Sev })}>{SEVS.map((s) => <option key={s} value={s}>{SEV_LABEL[s]} and above</option>)}</select></Field>
           </div>
-          <div className="row" style={{ marginTop: 10 }}><button className="btn primary" disabled={!dirty} onClick={save}>Save</button>{dirty && <button className="btn" onClick={() => setForm(d.prefs)}>Discard</button>}
-            {canWrite && <button className="btn" style={{ marginLeft: "auto" }} onClick={sendNow}>Send pending now</button>}</div>
+          <div className="row" style={{ marginTop: 10 }}><button type="button" className="btn primary" disabled={!dirty} onClick={save}>Save</button>{dirty && <button type="button" className="btn" onClick={() => setForm(d.prefs)}>Discard</button>}
+            {canWrite && <button type="button" className="btn" style={{ marginLeft: "auto" }} onClick={sendNow}>Send pending now</button>}</div>
           <p className="small muted" style={{ marginTop: 8 }}>Emails name the rule and the record only. Figures and explanations stay in the app because email is not a private channel. The administrator can include them with <code>NOTIFY_INCLUDE_DETAILS=1</code>.</p>
         </Card>
 

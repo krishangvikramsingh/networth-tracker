@@ -8,7 +8,7 @@ import { formatCompact } from "@shared/money";
 
 export function AddButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   const { canWrite } = useApp();
-  return <button className="btn primary" onClick={onClick} disabled={!canWrite} title={canWrite ? undefined : "Read-only role"}><Icon d={ICONS.plus} />{children}</button>;
+  return <button type="button" className="btn primary" onClick={onClick} disabled={!canWrite} title={canWrite ? undefined : "Read-only role"}><Icon d={ICONS.plus} />{children}</button>;
 }
 export function useSnapshot() {
   const { clientId, run } = useApp();

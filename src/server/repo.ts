@@ -4,6 +4,7 @@ import { defaultSettings } from "../shared/fixtures";
 import { defaultRules, RULE_DEFS } from "../shared/rules";
 import { defaultMappings } from "../shared/classify";
 import type { ClientData, ClientSettings, RuleConfig, CategoryMapping } from "../shared/types";
+import type { Nominee, Nomination } from "../shared/estate";
 
 type Kind = "s" | "n" | "b" | "j";
 export interface Spec { table: string; fields: Array<[string, Kind]>; timestamps: boolean; archivable: boolean }
@@ -57,7 +58,7 @@ export function insertRow(db: DB, name: SpecName, obj: Record<string, any>): voi
   const cols = spec.fields.map(([p]) => snake(p));
   const vals = spec.fields.map(([p, k]) => toDb(k, obj[p]));
   if (spec.timestamps) { cols.push("created_at", "updated_at"); const t = nowISO(); vals.push(t, t); }
-  else if (spec.table !== "valuations" || true) { if (["transactions", "snapshots", "valuations"].includes(spec.table)) { cols.push("created_at"); vals.push(nowISO()); } }
+  else if (["transactions", "snapshots", "valuations"].includes(spec.table)) { cols.push("created_at"); vals.push(nowISO()); }
   db.prepare(`INSERT INTO ${spec.table} (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`).run(...(vals as any[]));
 }
 export function updateRow(db: DB, name: SpecName, id: string, obj: Record<string, any>): void {
@@ -114,6 +115,13 @@ export function ensureGlobalMappings(db: DB): void {
   for (const m of defaultMappings()) db.prepare("INSERT INTO category_mappings (id, client_id, domain, match_type, pattern, category, priority, source) VALUES (?,NULL,?,?,?,?,?,?)").run(uid("map"), m.domain, m.matchType, m.pattern, m.category, m.priority, m.source);
 }
 
+export function loadNominees(db: DB, clientId: string): Nominee[] {
+  return (db.prepare("SELECT * FROM nominees WHERE client_id = ? ORDER BY rowid").all(clientId) as any[]).map((r) => ({ id: r.id, clientId: r.client_id, name: r.name, relationship: r.relationship, contact: r.contact, notes: r.notes }));
+}
+export function loadNominations(db: DB, clientId: string): Nomination[] {
+  return (db.prepare("SELECT * FROM nominations WHERE client_id = ? ORDER BY rowid").all(clientId) as any[]).map((r) => ({ id: r.id, clientId: r.client_id, entity: r.entity, entityId: r.entity_id, nomineeId: r.nominee_id, shareBps: r.share_bps }));
+}
+
 export function loadClientData(db: DB, clientId: string): ClientData | null {
   const c = db.prepare("SELECT * FROM clients WHERE id = ?").get(clientId) as Record<string, any> | undefined;
   if (!c) return null;
@@ -125,6 +133,7 @@ export function loadClientData(db: DB, clientId: string): ClientData | null {
     commitments: listAll(db, "commitments", clientId), transactions: listAll(db, "transactions", clientId), snapshots: listAll(db, "snapshots", clientId),
     policies: listAll(db, "policies", clientId), goals: listAll(db, "goals", clientId), targets: loadTargets(db, clientId), rules: loadRules(db, clientId),
     mappings: loadMappings(db, clientId), valuations: listAll(db, "valuations", clientId), scoreHistory,
+    nominees: loadNominees(db, clientId), nominations: loadNominations(db, clientId),
   };
 }
 

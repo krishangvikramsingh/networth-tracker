@@ -46,7 +46,7 @@ export function Kpi({ label, value, sub, await: awaiting, onClick, badge, tone }
       {sub && <div className="sub">{sub}</div>}
     </>
   );
-  return onClick ? <button className="kpi" onClick={onClick} aria-label={`${label}: open details`}>{body}</button> : <div className="kpi">{body}</div>;
+  return onClick ? <button type="button" className="kpi" onClick={onClick} aria-label={`${label}: open details`}>{body}</button> : <div className="kpi">{body}</div>;
 }
 
 export function Modal({ title, onClose, children, footer, drawer, wide }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; drawer?: boolean; wide?: boolean }) {
@@ -70,9 +70,10 @@ export function Modal({ title, onClose, children, footer, drawer, wide }: { titl
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ov; prev?.focus?.(); };
   }, [onClose]);
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click is a mouse shortcut; Escape and the Close button are the keyboard paths
     <div className={`overlay ${drawer ? "drawer" : ""}`} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby={id} ref={ref} tabIndex={-1} style={wide ? { maxWidth: 820 } : undefined}>
-        <div className="modal-h"><h2 id={id}>{title}</h2><button className="btn ghost sm" data-close onClick={onClose} aria-label="Close"><Icon d={ICONS.x} /></button></div>
+        <div className="modal-h"><h2 id={id}>{title}</h2><button type="button" className="btn ghost sm" data-close onClick={onClose} aria-label="Close"><Icon d={ICONS.x} /></button></div>
         <div className="modal-b">{children}</div>
         {footer && <div className="modal-f">{footer}</div>}
       </div>
@@ -134,7 +135,7 @@ export function DataTable<T extends { id?: string }>({ cols, rows, search, defau
         <table className="tbl" style={dense ? { fontSize: 12.5 } : undefined}>
           <thead><tr>{cols.filter((c) => !c.hide).map((c) => (
             <th key={c.key} className={c.right ? "r" : ""} aria-sort={sort?.key === c.key ? (sort.dir === 1 ? "ascending" : "descending") : undefined}>
-              {c.sort ? <button onClick={() => setSort(sort?.key === c.key ? { key: c.key, dir: (-sort.dir) as 1 | -1 } : { key: c.key, dir: 1 })}>{c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}</button> : c.label}
+              {c.sort ? <button type="button" onClick={() => setSort(sort?.key === c.key ? { key: c.key, dir: (-sort.dir) as 1 | -1 } : { key: c.key, dir: 1 })}>{c.label}{sort?.key === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}</button> : c.label}
             </th>))}</tr></thead>
           <tbody>
             {shown.map((r, i) => (
@@ -145,7 +146,7 @@ export function DataTable<T extends { id?: string }>({ cols, rows, search, defau
         </table>
       </div>
       {filtered.length === 0 && (empty ?? <Empty title="Nothing to show" />)}
-      {pages > 1 && <div className="row between small" style={{ marginTop: 8 }}><span className="muted">Page {cur + 1} of {pages}</span><div className="row"><button className="btn sm" disabled={cur === 0} onClick={() => setPage(cur - 1)}>Previous</button><button className="btn sm" disabled={cur >= pages - 1} onClick={() => setPage(cur + 1)}>Next</button></div></div>}
+      {pages > 1 && <div className="row between small" style={{ marginTop: 8 }}><span className="muted">Page {cur + 1} of {pages}</span><div className="row"><button type="button" className="btn sm" disabled={cur === 0} onClick={() => setPage(cur - 1)}>Previous</button><button type="button" className="btn sm" disabled={cur >= pages - 1} onClick={() => setPage(cur + 1)}>Next</button></div></div>}
     </div>
   );
 }
@@ -153,12 +154,13 @@ export function DataTable<T extends { id?: string }>({ cols, rows, search, defau
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: Array<{ id: T; label: string; count?: number }>; value: T; onChange: (t: T) => void }) {
   return (
     <div className="tabs" role="tablist">
-      {tabs.map((t) => <button key={t.id} role="tab" className="tab" aria-selected={t.id === value} onClick={() => onChange(t.id)}>{t.label}{t.count != null && <span className="muted"> · {t.count}</span>}</button>)}
+      {tabs.map((t) => <button type="button" key={t.id} role="tab" className="tab" aria-selected={t.id === value} onClick={() => onChange(t.id)}>{t.label}{t.count != null && <span className="muted"> · {t.count}</span>}</button>)}
     </div>
   );
 }
 export function Segmented<T extends string>({ options, value, onChange, label }: { options: Array<{ id: T; label: string }>; value: T; onChange: (t: T) => void; label: string }) {
-  return <div className="pill-select" role="group" aria-label={label}>{options.map((o) => <button key={o.id} aria-pressed={o.id === value} onClick={() => onChange(o.id)}>{o.label}</button>)}</div>;
+  // biome-ignore lint/a11y/useSemanticElements: a styled segmented control; a <fieldset> would bring unwanted default styling
+  return <div className="pill-select" role="group" aria-label={label}>{options.map((o) => <button type="button" key={o.id} aria-pressed={o.id === value} onClick={() => onChange(o.id)}>{o.label}</button>)}</div>;
 }
 
 export const classColor = (c: AssetClass | "unclassified") => `var(--c-${c})`;

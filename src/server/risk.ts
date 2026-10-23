@@ -26,7 +26,7 @@ export function recordAssessment(db: DB, cid: string, body: unknown, actor: { id
   const answers = raw as Answers;
   const missing = RISK_QUESTIONS.filter((q) => answers[q.id] == null);
   if (missing.length) throw new HttpError(422, `Answer every question (${missing.length} left).`, missing.map((q) => ({ field: q.id, message: "Choose an option." })));
-  let res;
+  let res: ReturnType<typeof assessRisk>;
   try { res = assessRisk(answers); } catch (e) { throw new HttpError(422, e instanceof Error ? e.message : "Invalid answers."); }
   if (!res.complete || !res.profile) throw new HttpError(422, "The questionnaire is incomplete.");
   const row = {

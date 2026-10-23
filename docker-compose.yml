@@ -1,0 +1,23 @@
+# docker compose up --build
+# The app is bound to localhost only. Put a TLS-terminating reverse proxy in front before exposing it, and set
+# TRUST_PROXY=1 so the login throttle sees real client addresses. Session cookies are Secure in production mode,
+# so the browser only keeps them over HTTPS (localhost counts as secure for most browsers).
+services:
+  app:
+    build: .
+    ports: ["127.0.0.1:8787:8787"]
+    volumes: ["networth-data:/data"]
+    environment:
+      NODE_ENV: production
+      # First start prints one-time random demo passwords in the logs unless you set these:
+      # DEMO_ADMIN_PASSWORD: change-me
+      # DEMO_VIEWER_PASSWORD: change-me
+      # TRUST_PROXY: "1"
+      # APP_BASE_URL: https://wealth.example.com
+      # SMTP_HOST: smtp.example.com
+      # SMTP_USER: ...
+      # SMTP_PASS: ...
+      # MAIL_FROM: "Wealth Intelligence <alerts@example.com>"
+    restart: unless-stopped
+volumes:
+  networth-data:

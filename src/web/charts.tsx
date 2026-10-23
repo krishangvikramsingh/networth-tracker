@@ -27,7 +27,7 @@ export function ChartCard({ title, subtitle, children, table, height = 260, acti
 }) {
   const [asTable, setAsTable] = useState(false);
   return (
-    <Card title={title} subtitle={subtitle} actions={<div className="row no-print">{actions}{table && !empty && <button className="btn sm ghost chart-toggle" onClick={() => setAsTable(!asTable)} aria-pressed={asTable}><Icon d={ICONS.chart} size={14} />{asTable ? "Chart" : "Table"}</button>}</div>}>
+    <Card title={title} subtitle={subtitle} actions={<div className="row no-print">{actions}{table && !empty && <button type="button" className="btn sm ghost chart-toggle" onClick={() => setAsTable(!asTable)} aria-pressed={asTable}><Icon d={ICONS.chart} size={14} />{asTable ? "Chart" : "Table"}</button>}</div>}>
       {empty ? empty : asTable && table ? (
         <div className="tbl-wrap" style={{ maxHeight: height + 40, overflow: "auto" }}><table className="tbl"><thead><tr>{table.headers.map((h, i) => <th key={h} className={i ? "r" : ""}>{h}</th>)}</tr></thead>
           <tbody>{table.rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} className={j ? "r num" : ""}>{c}</td>)}</tr>)}</tbody></table></div>
@@ -76,7 +76,7 @@ export function BarsChart({ data, series, xKey = "name", layout = "vertical", st
   );
 }
 
-export function TrendChart({ data, series, area, fmt, yFmt, zeroLine }: { data: Array<Record<string, any>>; series: Array<{ key: string; label: string; color: string }>; area?: boolean; fmt?: (v: number) => string; yFmt?: (v: number) => string; zeroLine?: boolean }) {
+export function TrendChart({ data, series, area, fmt, yFmt }: { data: Array<Record<string, any>>; series: Array<{ key: string; label: string; color: string }>; area?: boolean; fmt?: (v: number) => string; yFmt?: (v: number) => string; zeroLine?: boolean }) {
   const C: any = area ? AreaChart : LineChart;
   return (
     <ResponsiveContainer>

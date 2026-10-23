@@ -1,27 +1,42 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, ApiError } from "./api";
 import { useApp } from "./store";
 import { Badge, Banner, Icon, ICONS, Skeleton, fmtDate } from "./ui";
-import { Overview } from "./pages/Overview";
-import { AssetsPage } from "./pages/Assets";
-import { PortfolioPage } from "./pages/Portfolio";
-import { CashflowPage } from "./pages/Cashflow";
-import { RulesPage } from "./pages/Rules";
-import { AlertsPage } from "./pages/Alerts";
-import { HealthPage } from "./pages/Health";
-import { GoalsPage } from "./pages/Goals";
-import { CasesPage } from "./pages/Cases";
-import { DataCollectionPage } from "./pages/DataCollection";
-import { MarketPage } from "./pages/Market";
-import { ReportsPage } from "./pages/Reports";
-import { DemoPage } from "./pages/Demo";
-import { MethodologyPage } from "./pages/Methodology";
-import { RiskProfilePage } from "./pages/RiskProfile";
-import { NomineesPage } from "./pages/Nominees";
-import { NotificationsPage } from "./pages/Notifications";
+
+/** Each page is its own chunk, fetched when first visited, so the first load stays small. */
+const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
+const ClientsPage = page(() => import("./pages/Clients"), "ClientsPage");
+const Overview = page(() => import("./pages/Overview"), "Overview");
+const AssetsPage = page(() => import("./pages/Assets"), "AssetsPage");
+const PortfolioPage = page(() => import("./pages/Portfolio"), "PortfolioPage");
+const CashflowPage = page(() => import("./pages/Cashflow"), "CashflowPage");
+const RulesPage = page(() => import("./pages/Rules"), "RulesPage");
+const AlertsPage = page(() => import("./pages/Alerts"), "AlertsPage");
+const HealthPage = page(() => import("./pages/Health"), "HealthPage");
+const GoalsPage = page(() => import("./pages/Goals"), "GoalsPage");
+const CasesPage = page(() => import("./pages/Cases"), "CasesPage");
+const DataCollectionPage = page(() => import("./pages/DataCollection"), "DataCollectionPage");
+const MarketPage = page(() => import("./pages/Market"), "MarketPage");
+const ReportsPage = page(() => import("./pages/Reports"), "ReportsPage");
+const DemoPage = page(() => import("./pages/Demo"), "DemoPage");
+const MethodologyPage = page(() => import("./pages/Methodology"), "MethodologyPage");
+const RiskProfilePage = page(() => import("./pages/RiskProfile"), "RiskProfilePage");
+const NomineesPage = page(() => import("./pages/Nominees"), "NomineesPage");
+const NotificationsPage = page(() => import("./pages/Notifications"), "NotificationsPage");
+
+/** A page chunk that cannot be fetched (offline, or a release replaced it) should not blank the whole app. */
+class PageBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (<Banner tone="crit" title="This page could not be loaded.">If you are offline, reconnect and try again. If the app was just updated, reloading fetches the new version. <button type="button" className="btn sm" onClick={() => location.reload()}>Reload</button></Banner>);
+  }
+}
 
 const NAV: Array<{ to: string; label: string; icon: string; group?: string }> = [
+  { to: "/clients", label: "All clients", icon: ICONS.users, group: "Advisor" },
   { to: "/", label: "Wealth overview", icon: ICONS.home, group: "Wealth" },
   { to: "/assets", label: "Assets & liabilities", icon: ICONS.wallet },
   { to: "/portfolio", label: "Portfolio analytics", icon: ICONS.chart },
@@ -59,7 +74,7 @@ function Login() {
           <div className="field"><label htmlFor="em">Email</label><input id="em" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus /></div>
           <div className="field"><label htmlFor="pw">Password</label><input id="pw" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></div>
           {err && <div className="err" role="alert" style={{ color: "var(--crit)", fontWeight: 550 }}>{err}</div>}
-          <button className="btn primary" disabled={busy} style={{ justifyContent: "center" }}>{busy ? "Signing in…" : "Sign in"}</button>
+          <button type="submit" className="btn primary" disabled={busy} style={{ justifyContent: "center" }}>{busy ? "Signing in…" : "Sign in"}</button>
           <div className="small muted">Academic demo with synthetic data. Demo accounts are listed in the README (advisor: full access · viewer: read-only).</div>
         </div>
       </form>
@@ -86,7 +101,7 @@ function GlobalSearch() {
       <Icon d={ICONS.search} />
       <input aria-label="Search pages, holdings and alerts" placeholder="Search holdings, alerts, pages…" value={q} onFocus={() => setOpen(true)} onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onKeyDown={(e) => { if (e.key === "Enter" && res[0]) { nav(res[0].to); setOpen(false); setQ(""); } if (e.key === "Escape") setOpen(false); }} />
-      {open && res.length > 0 && <div className="results" role="listbox">{res.map((r, i) => <button key={i} role="option" aria-selected={false} onClick={() => { nav(r.to); setOpen(false); setQ(""); }}><b>{r.label}</b> <span className="muted small">· {r.sub}</span></button>)}</div>}
+      {open && res.length > 0 && <div className="results" role="listbox">{res.map((r, i) => <button type="button" key={i} role="option" aria-selected={false} onClick={() => { nav(r.to); setOpen(false); setQ(""); }}><b>{r.label}</b> <span className="muted small">· {r.sub}</span></button>)}</div>}
     </div>
   );
 }
@@ -114,7 +129,7 @@ export function App() {
     <div className="login"><div className="card" style={{ maxWidth: 420, padding: 24 }} role="alert">
       <h1 style={{ fontSize: 18 }}>Cannot reach the server</h1>
       <p className="sec" style={{ margin: "8px 0 14px" }}>You may be offline, or the server may be stopped. You have not been signed out. Nothing is stored on this device.</p>
-      <button className="btn primary" onClick={retryAuth}>Try again</button></div></div>);
+      <button type="button" className="btn primary" onClick={retryAuth}>Try again</button></div></div>);
   if (!user) return <Login />;
 
   const openAlerts = state?.alerts.filter((a) => a.status === "open" && a.kind !== "data_gap").length ?? 0;
@@ -132,13 +147,13 @@ export function App() {
         {NAV.map((n) => {
           const g = n.group && n.group !== lastGroup ? n.group : null; if (n.group) lastGroup = n.group;
           return (<div key={n.to} style={{ display: "contents" }}>{g && <div className="grp">{g}</div>}
-            <NavLink to={n.to} end={n.to === "/"} className={({ isActive }) => (isActive ? "active" : "")}><Icon d={n.icon} />{n.label}{n.to === "/alerts" && openAlerts > 0 && <span className="badge-count" aria-label={`${openAlerts} open alerts`}>{openAlerts}</span>}</NavLink></div>);
+            <NavLink to={n.to} end={n.to === "/"} className={({ isActive }) => (isActive ? "active" : "")}><Icon d={n.icon} />{n.label}{n.to === "/alerts" && openAlerts > 0 && <span className="badge-count">{openAlerts}<span className="sr-only"> open alerts</span></span>}</NavLink></div>);
         })}
         <div style={{ marginTop: "auto", padding: "14px 10px 0", fontSize: 11.5, color: "#7d93ab" }}>Educational tool. Not investment advice.<br />Synthetic demo data.</div>
       </nav>
       <div className="main">
         <header className="topbar">
-          <button className="btn ghost menu-btn" onClick={() => setNavOpen(!navOpen)} aria-label="Toggle navigation"><Icon d={ICONS.menu} /></button>
+          <button type="button" className="btn ghost menu-btn" onClick={() => setNavOpen(!navOpen)} aria-label="Toggle navigation"><Icon d={ICONS.menu} /></button>
           <label className="sr-only" htmlFor="client-switch">Client</label>
           <select id="client-switch" value={clientId ?? ""} onChange={(e) => setClientId(e.target.value)} style={{ width: "auto", fontWeight: 600 }}>
             <optgroup label="Clients">{clients.filter((c) => c.kind === "live").map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
@@ -149,20 +164,21 @@ export function App() {
           {ev && <div className="small" style={{ textAlign: "right" }} title={`Calculated ${ev.computedAt}`}>
             <div>As of <b>{fmtDate(ev.asOf)}</b></div>
             <div className="muted">{ev.portfolio.valuation.newestDate ? `Latest valuation ${fmtDate(ev.portfolio.valuation.newestDate)}` : "No valuation dates recorded"} {stale && <Badge tone="warn" title="Some valuations are missing a date or are older than the staleness limit">check freshness</Badge>}</div></div>}
-          {installEvt && <button className="btn sm install-btn" onClick={async () => { installEvt.prompt(); try { await installEvt.userChoice; } finally { setInstallEvt(null); } }}><Icon d={ICONS.download} size={14} />Install app</button>}
-          <button className="btn ghost" onClick={toggleTheme} aria-label="Toggle dark mode"><Icon d={ICONS.moon} /></button>
+          {installEvt && <button type="button" className="btn sm install-btn" onClick={async () => { installEvt.prompt(); try { await installEvt.userChoice; } finally { setInstallEvt(null); } }}><Icon d={ICONS.download} size={14} />Install app</button>}
+          <button type="button" className="btn ghost" onClick={toggleTheme} aria-label="Toggle dark mode"><Icon d={ICONS.moon} /></button>
           <div className="small" style={{ textAlign: "right" }}><b>{user.name}</b><div className="muted">{user.role === "admin" ? "Advisor" : "Read-only"}</div></div>
-          <button className="btn sm" onClick={async () => { await api.post("/api/auth/logout"); setUser(null); }}>Sign out</button>
+          <button type="button" className="btn sm" onClick={async () => { await api.post("/api/auth/logout"); setUser(null); }}>Sign out</button>
         </header>
         <main className="page" id="main">
           {!online && <div style={{ marginBottom: 14 }}><Banner tone="warn" title="You are offline.">Figures on screen are from your last connection and may be out of date. Changes cannot be saved until you are back online.</Banner></div>}
           {client?.kind === "case" && <div style={{ marginBottom: 14 }}><Banner tone="info" title="Illustrative case study.">Values here are separate from Priya Ramanathan's records. Anything marked illustrative is an editable assumption, not client data.</Banner></div>}
           {user.role !== "admin" && <div style={{ marginBottom: 14 }}><Banner>You are signed in with a read-only role. Editing is disabled.</Banner></div>}
-          {error && <div style={{ marginBottom: 14 }}><Banner tone="crit" title="Could not load data.">{error} <button className="btn sm" onClick={reload}>Retry</button></Banner></div>}
+          {error && <div style={{ marginBottom: 14 }}><Banner tone="crit" title="Could not load data.">{error} <button type="button" className="btn sm" onClick={reload}>Retry</button></Banner></div>}
           {!state && !error ? <div className="stack"><Skeleton h={34} w={300} /><div className="grid g4"><Skeleton h={108} /><Skeleton h={108} /><Skeleton h={108} /><Skeleton h={108} /></div><Skeleton h={300} /></div> : state ? (
             <div style={{ opacity: loading ? 0.85 : 1, transition: "opacity .15s" }}>
-              <Routes>
+              <PageBoundary key={loc.pathname}><Suspense fallback={<div className="stack"><Skeleton h={34} w={300} /><Skeleton h={300} /></div>}><Routes>
                 <Route path="/" element={<Overview />} />
+                <Route path="/clients" element={<ClientsPage />} />
                 <Route path="/assets" element={<AssetsPage />} />
                 <Route path="/portfolio" element={<PortfolioPage />} />
                 <Route path="/cashflow" element={<CashflowPage />} />
@@ -180,7 +196,7 @@ export function App() {
                 <Route path="/demo" element={<DemoPage />} />
                 <Route path="/methodology" element={<MethodologyPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              </Routes></Suspense></PageBoundary>
             </div>) : null}
         </main>
       </div>

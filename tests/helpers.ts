@@ -13,7 +13,7 @@ export function blank(over: Partial<ClientData> = {}): ClientData {
   return {
     client: { ...p.client, id: "t", name: "Test" }, settings: { ...defaultSettings(), liabilitiesStatus: "complete", incomeStatus: "complete" },
     holdings: [], liabilities: [], cashflows: [], commitments: [], transactions: [], snapshots: [], policies: [], goals: [], targets: SAMPLE_TARGETS.map((t) => ({ ...t })),
-    rules: defaultRules(), mappings: defaultMappings(), valuations: [], scoreHistory: [], ...over,
+    rules: defaultRules(), mappings: defaultMappings(), valuations: [], nominees: [], nominations: [], scoreHistory: [], ...over,
   };
 }
 export function setRule(d: ClientData, key: RuleKey, patch: Partial<RuleConfig> & { params?: Record<string, unknown> }): ClientData {

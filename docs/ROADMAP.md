@@ -7,7 +7,7 @@ Working document for continuing development with Claude Code. Each task has a ch
 ```bash
 cd networth-tracker
 npm install
-npm run typecheck && npm test        # must stay green (217 tests)
+npm run typecheck && npm test        # must stay green (301 tests)
 npm run build && npm run test:e2e    # e2e needs a running server: npm run serve (after build)
 ```
 
@@ -38,24 +38,24 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 - **Done when:** the traceability matrix in `docs/AUDIT.md` cites the real sheet/image for each row and no requirement is "derived from brief only".
 
 ### 0.2 Known engineering defects
-- [ ] **Writes on GET.** `GET /api/clients/:cid/state` calls `buildState` -> `refresh` -> `syncAlerts` (`src/server/service.ts`, `src/server/app.ts`). Move alert reconciliation to mutation handlers and a scheduled job; make `GET` read-only. Test: two GETs produce no DB writes.
-- [ ] **Module-level transaction depth.** `tx()` in `src/server/db.ts` uses a global counter. Replace with a per-connection mechanism (savepoints) so concurrent async work cannot corrupt nesting.
-- [ ] **In-memory stores.** `loginThrottle` (`src/server/auth.ts`) and the idempotency map (`src/server/app.ts`) reset on restart and do not work across instances. Move to the database (new migration) with expiry cleanup.
+- [x] **Writes on GET.** DONE: reads are write-free (SQL-spy test over every GET), reconciliation moved to mutations and `jobs.ts`.
+- [x] **Module-level transaction depth.** DONE: per-connection depth with savepoints (`tests/runtime.test.ts`).
+- [x] **In-memory stores.** DONE: login throttle and idempotency keys live in the database (migration 005).
 - [ ] **Experimental SQLite.** `node:sqlite` is experimental. Abstract the repository (`src/server/repo.ts`) behind an interface so Postgres can replace it (see 0.3).
-- [ ] **Single 0.9 MB JS bundle.** Add route-level code splitting (`React.lazy`) in `src/web/App.tsx`; target main chunk under 400 kB.
-- [ ] **Inline hook call.** `Overview.tsx` calls `useApp().canWrite` inside JSX; hoist to the top of the component.
+- [x] **Single 0.9 MB JS bundle.** DONE: route-level `React.lazy`; main chunk 295 kB (charts 425 kB load on demand).
+- [x] **Inline hook call.** DONE: `canWrite` is read at the top of `Overview`.
 - **Done when:** all of the above have tests or a measured result, and `npm test` is green.
 
 ### 0.3 Platform
 - [ ] Postgres support (keep SQLite for local demo): repository interface, SQL dialect differences, migrations runner, connection pooling.
-- [ ] Dockerfile + `docker-compose.yml` (app + Postgres); health check on `/api/health`.
-- [ ] CI (GitHub Actions): typecheck, tests, build, e2e, `npm audit`, secret scan.
-- [ ] Linting/formatting (ESLint + Prettier or Biome) with a CI gate.
-- [ ] OpenAPI spec generated from the zod schemas (`src/server/schemas.ts`); publish at `/api/docs`.
+- [x] Dockerfile + `docker-compose.yml` (SQLite on a volume) with a health check. Postgres is still open. The image build is verified by CI, not locally.
+- [x] CI (GitHub Actions): typecheck, tests, build, e2e, `npm audit`, secret scan, Docker build.
+- [x] Linting with a CI gate (Biome: correctness, suspicious code, accessibility). Formatting is intentionally not enforced; the code uses a dense style.
+- [x] OpenAPI spec generated from the live routes and zod schemas; served at `/api/docs`.
 - [ ] Server-side pagination/search for large tables (holdings, transactions, audit).
 
 ### 0.4 Security hardening (before any real data)
-- [ ] **Multi-tenant authorisation:** add `tenant_id` to `clients`/`users`; enforce on every query in `src/server/repo.ts` and `src/server/service.ts`. Test: user A cannot read or write tenant B (every route).
+- [x] **Multi-tenant authorisation (application level):** DONE with an exhaustive route sweep. Still open: Postgres row-level security as defence in depth.
 - [ ] MFA (TOTP), password reset by email, email verification, session list/revoke, account lockout.
 - [ ] Remove default demo credentials outside development (`src/server/seed.ts`); fail startup in production if unset.
 - [ ] Global rate limiting; request size limits per route; stricter upload validation.
@@ -114,7 +114,7 @@ The workbook (`NETWORTH_TRACKER-TEAM_TAZEEN_CONSOLIDATED_SOLVED.xlsx`) and the t
 - [ ] Indian financial-year views (April to March) and timezone-correct dates (IST).
 
 ### 2.2 Advisor product
-- [ ] Advisor console: many clients, search, portfolio-level alerts, task queue.
+- [x] Advisor console (first version): `/clients` with search, portfolio-level view and attention queue. Still open: task queue with assignment, bulk actions.
 - [ ] Client invitations; household/family grouping. (Nominee registry and per-asset nominations done: `/nominees`.)
 - [ ] Roles beyond admin/viewer (advisor, analyst, client, auditor).
 - [ ] White-label branded reports; server-side PDF generation (headless Chromium) with scheduled delivery.
