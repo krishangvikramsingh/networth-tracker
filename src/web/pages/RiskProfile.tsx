@@ -76,7 +76,7 @@ export function RiskProfilePage() {
                     <Kpi label="Ability" value={res.capacity.score != null ? `${res.capacity.score}/100` : undefined} await={res.capacity.score == null} sub={res.capacity.score == null ? `${res.capacity.min}–${res.capacity.max} possible` : PROFILES[profileForScore(res.capacity.score)].label} />
                   </div>
                   {res.limitedBy && <p className="small sec">{LIMITED_BY_TEXT[res.limitedBy]}</p>}
-                  {res.guardRails.length > 0 && <Banner tone="warn" title="Guard-rail applied.">{res.guardRails.map((g) => RISK_QUESTIONS.find((q) => q.id === g.questionId)!.text.replace(/\?$/, "")).join("; ")} — caps the profile at {PROFILES[res.guardRails.reduce((m, g) => (PROFILE_KEYS.indexOf(g.cap) < PROFILE_KEYS.indexOf(m) ? g.cap : m), res.guardRails[0].cap)].label}.</Banner>}
+                  {res.guardRails.length > 0 && <Banner tone="warn" title="Guard-rail applied.">{res.guardRails.map((g) => RISK_QUESTIONS.find((q) => q.id === g.questionId)!.text.replace(/\?$/, "")).join("; ")}, caps the profile at {PROFILES[res.guardRails.reduce((m, g) => (PROFILE_KEYS.indexOf(g.cap) < PROFILE_KEYS.indexOf(m) ? g.cap : m), res.guardRails[0].cap)].label}.</Banner>}
                   {canWrite && <div className="row"><button type="button" className="btn primary" onClick={save} disabled={!res.complete || unchanged}>{unchanged ? "Saved" : "Save assessment"}</button>{!res.complete && <span className="small muted">Answer all {res.total} to save.</span>}</div>}
                 </div>)}
             </Card>

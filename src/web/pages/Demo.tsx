@@ -10,12 +10,12 @@ import { PRIYA_ID } from "@shared/fixtures";
 interface Step { id: string; title: string; body: string; to?: string; action?: { label: string; entity: EntityName; defaults: any; title: string }; done?: (s: ReturnType<typeof useApp>["state"]) => boolean }
 
 const STEPS: Step[] = [
-  { id: "s1", title: "Open Priya’s wealth dashboard", body: "KPIs show real figures where data exists and “Awaiting data” where it doesn’t — liabilities are shown as not yet assessed, not zero.", to: "/" },
+  { id: "s1", title: "Open Priya’s wealth dashboard", body: "KPIs show real figures where data exists and “Awaiting data” where it doesn’t, liabilities are shown as not yet assessed, not zero.", to: "/" },
   { id: "s2", title: "Review the supplied assets", body: "Seven aggregate holdings reconcile to ₹8.63 crore. Note the provisional / needs-review badges on MF, PMS and AIF.", to: "/assets" },
   { id: "s3", title: "Add a missing mutual-fund scheme", body: "Splits the ₹1.83 Cr aggregate. The amount below is a DEMO entry, not Priya’s real holding. The aggregate is never double counted: the rest stays as an unallocated remainder.",
-    action: { label: "Add demo scheme", entity: "holdings", title: "Add underlying mutual-fund scheme (DEMO entry)", defaults: { name: "Demo Flexi Cap Fund (DEMO entry)", instrumentType: "equity_mf", parentId: "h_priya_mf", currentValue: crore(1.5), investedValue: crore(1.2), acquisitionDate: "2023-04-03", notes: "DEMO entry for the walkthrough — not client data." } },
+    action: { label: "Add demo scheme", entity: "holdings", title: "Add underlying mutual-fund scheme (DEMO entry)", defaults: { name: "Demo Flexi Cap Fund (DEMO entry)", instrumentType: "equity_mf", parentId: "h_priya_mf", currentValue: crore(1.5), investedValue: crore(1.2), acquisitionDate: "2023-04-03", notes: "DEMO entry for the walkthrough, not client data." } },
     done: (s) => !!s?.data.holdings.some((h) => h.parentId === "h_priya_mf" && !h.archived) },
-  { id: "s4", title: "Watch it categorise automatically", body: "In the form, the classification panel shows the result, the method (instrument type / keyword / exact name) and its status. You can override it on the holding’s detail page — the override is logged.", to: "/assets" },
+  { id: "s4", title: "Watch it categorise automatically", body: "In the form, the classification panel shows the result, the method (instrument type / keyword / exact name) and its status. You can override it on the holding’s detail page, the override is logged.", to: "/assets" },
   { id: "s5", title: "Record a liability", body: "A DEMO home loan. Net worth switches from “Awaiting data” to a provisional figure; it becomes final once you mark liabilities complete.",
     action: { label: "Add demo loan", entity: "liabilities", title: "Record liability (DEMO entry)", defaults: { name: "Demo home loan (DEMO entry)", type: "home_loan", outstanding: lakh(40), originalPrincipal: lakh(55), emi: lakh(0.45), ratePct: "8.5", remainingMonths: 120 } },
     done: (s) => !!s?.data.liabilities.some((l) => !l.archived) },
@@ -23,13 +23,13 @@ const STEPS: Step[] = [
   { id: "s7", title: "Record monthly income", body: "A DEMO salary line. Income stays “partial” until you mark it complete, and the savings rate remains provisional until then.",
     action: { label: "Add demo salary", entity: "cashflows", title: "Record income (DEMO entry)", defaults: { kind: "income", category: "salary", name: "Demo monthly salary (DEMO entry)", amount: lakh(3), frequency: "monthly", verified: true } },
     done: (s) => !!s?.data.cashflows.some((c) => c.kind === "income" && c.category === "salary" && !c.archived) },
-  { id: "s8", title: "Review the cash-flow forecast", body: "Dated 12-month view: pension receipt and the ₹20 L premium balance appear as unscheduled until given dates — they are not smeared across months.", to: "/cashflow" },
+  { id: "s8", title: "Review the cash-flow forecast", body: "Dated 12-month view: pension receipt and the ₹20 L premium balance appear as unscheduled until given dates, they are not smeared across months.", to: "/cashflow" },
   { id: "s9", title: "Trigger an allocation alert", body: "After step 3, classified equity passes the 60% limit on investable assets, so the equity rule moves from “possible” to a definite breach. Open it to see why, the affected holdings and the recommended action.", to: "/alerts" },
   { id: "s10", title: "Adjust an allocation threshold", body: "Change the equity limit (e.g. to 70%) under Alert rules → Save. The alert resolves immediately and the history keeps the record.", to: "/rules" },
   { id: "s11", title: "Review a rebalancing scenario", body: "Target allocation tab: see gaps, sale-vs-illiquid caveats and the scenario simulator. Nothing is executed.", to: "/rules" },
   { id: "s12", title: "View the financial-health score and why", body: "Provisional score, per-component explanation, formulas and what is unassessed.", to: "/health" },
-  { id: "s13", title: "Compare the three investor case studies", body: "A (aggressive, ₹10 Cr assets / ₹5 Cr liabilities), B (50:50), C (70:30) — isolated from Priya.", to: "/cases" },
-  { id: "s14", title: "Review the pension commitment", body: "₹80 L of ₹1 Cr paid, ₹20 L remaining — reported as a commitment, not a loan, with the ₹5 L annual pension receivable separate.", to: "/assets?tab=commitments" },
+  { id: "s13", title: "Compare the three investor case studies", body: "A (aggressive, ₹10 Cr assets / ₹5 Cr liabilities), B (50:50), C (70:30), isolated from Priya.", to: "/cases" },
+  { id: "s14", title: "Review the pension commitment", body: "₹80 L of ₹1 Cr paid, ₹20 L remaining, reported as a commitment, not a loan, with the ₹5 L annual pension receivable separate.", to: "/assets?tab=commitments" },
   { id: "s15", title: "Export a report", body: "Excel, CSV and a print-ready PDF with methodology, data-quality notices and limitations.", to: "/reports" },
 ];
 

@@ -60,7 +60,7 @@ export function PortfolioPage() {
   const alloc = ev.allocation[ev.activeDenominator].filter((r) => r.inDenominator && (r.targetPct != null || (r.pct ?? 0) > 0));
   return (
     <>
-      <PageHead title="Investment portfolio analytics" subtitle="Exposure, concentration, liquidity and performance across all investments. Funds and managed portfolios are looked through where underlying holdings exist — never counted twice." />
+      <PageHead title="Investment portfolio analytics" subtitle="Exposure, concentration, liquidity and performance across all investments. Funds and managed portfolios are looked through where underlying holdings exist, never counted twice." />
       <div className="stack">
         <Card><div className="toolbar" style={{ margin: 0 }}>
           <select aria-label="Asset class" value={fc} onChange={(e) => setFc(e.target.value)} style={{ width: "auto" }}><option value="">All asset classes</option>{ASSET_CLASSES.filter((c) => c !== "real_estate").map((c) => <option key={c} value={c}>{classLabel(c)}</option>)}<option value="review">Unclassified</option></select>

@@ -57,7 +57,7 @@ function AllocationTab() {
   async function save() {
     setErr(null);
     const targets = ASSET_CLASSES.filter((c) => draft[c]?.t !== "" && Number(draft[c].t) > 0).map((c) => ({ assetClass: c, targetBps: Math.round(Number(draft[c].t) * 100), bandBps: draft[c].b === "" ? null : Math.round(Number(draft[c].b) * 100) }));
-    try { await api.put(`/api/clients/${clientId}/targets`, targets); await run(async () => {}, "Targets saved — drift recalculated"); } catch (e) { setErr(e instanceof ApiError ? e.message : "Could not save"); }
+    try { await api.put(`/api/clients/${clientId}/targets`, targets); await run(async () => {}, "Targets saved, drift recalculated"); } catch (e) { setErr(e instanceof ApiError ? e.message : "Could not save"); }
   }
   const setSetting = (patch: object, msg: string) => run(() => api.patch(`/api/clients/${clientId}/settings`, patch), msg);
 
@@ -165,7 +165,7 @@ function RuleCard({ def, cfg }: { def: RuleDef; cfg: RuleConfig }) {
   const setP = (k: string, val: unknown) => setV({ ...v, params: { ...p, [k]: val } });
   async function save() {
     const e = validateRuleValue(def.key, Number(v.value)); setErr(e); if (e) return;
-    try { await api.put(`/api/clients/${clientId}/rules/${def.key}`, { enabled: v.enabled, value: Number(v.value), severity: v.severity, params: v.params }); await run(async () => {}, `${def.name} updated — re-evaluated`); } catch (x) { setErr(x instanceof Error ? x.message : "Could not save"); }
+    try { await api.put(`/api/clients/${clientId}/rules/${def.key}`, { enabled: v.enabled, value: Number(v.value), severity: v.severity, params: v.params }); await run(async () => {}, `${def.name} updated, re-evaluated`); } catch (x) { setErr(x instanceof Error ? x.message : "Could not save"); }
   }
   const hasDen = "denominator" in cfg.params, hasInc = "inclusive" in cfg.params;
   return (
@@ -192,7 +192,7 @@ function RulesTab() {
   const rules = state!.data.rules;
   return (
     <div className="stack">
-      <Banner>Eight core rules come from the project brief; the rest are additional safeguards. Rules that lack data show <b>Awaiting data</b> instead of a number — never a misleading alert.</Banner>
+      <Banner>Eight core rules come from the project brief; the rest are additional safeguards. Rules that lack data show <b>Awaiting data</b> instead of a number, never a misleading alert.</Banner>
       <div className="section-title">Core rules (project brief)</div>
       {RULE_DEFS.filter((d) => d.group === "core").map((d) => <RuleCard key={d.key} def={d} cfg={rules.find((r) => r.key === d.key)!} />)}
       <div className="section-title">Additional alerts</div>
@@ -218,7 +218,7 @@ function SettingsTab() {
     <div className="stack">
       <Card title="Financial-health score weights" subtitle="Weights are re-normalised across assessed components, so they don’t have to add to 100.">
         <div className="form-grid">{(Object.keys(w) as Array<keyof HealthWeights>).map((k) => <Field key={k} label={HEALTH_LABELS[k]}><input type="number" min={0} max={100} value={w[k]} disabled={!canWrite} onChange={(e) => setW({ ...w, [k]: Number(e.target.value) })} /></Field>)}</div>
-        <div className="row" style={{ marginTop: 10 }}><span className="small muted">Total {totalW} {totalW === 100 ? "" : "(shares are computed as weight ÷ total)"}</span><button type="button" className="btn primary" disabled={!canWrite || totalW <= 0} onClick={() => patch({ healthWeights: w }, "Weights saved — score recalculated")}>Save weights</button><button type="button" className="btn" onClick={() => setW({ net_worth: 20, cash_flow: 20, emergency: 20, debt: 15, diversification: 15, insurance: 10 })}>Reset to default</button></div>
+        <div className="row" style={{ marginTop: 10 }}><span className="small muted">Total {totalW} {totalW === 100 ? "" : "(shares are computed as weight ÷ total)"}</span><button type="button" className="btn primary" disabled={!canWrite || totalW <= 0} onClick={() => patch({ healthWeights: w }, "Weights saved, score recalculated")}>Save weights</button><button type="button" className="btn" onClick={() => setW({ net_worth: 20, cash_flow: 20, emergency: 20, debt: 15, diversification: 15, insurance: 10 })}>Reset to default</button></div>
         <div className="row" style={{ marginTop: 14 }}><b className="small">Score bands (minimum score → label)</b>{bands.map((b, i) => <span key={i} className="row" style={{ gap: 4 }}><input aria-label={`Band ${i + 1} minimum`} type="number" min={0} max={100} value={b.min} onChange={(e) => setBands(bands.map((x, j) => (j === i ? { ...x, min: Number(e.target.value) } : x)))} style={{ width: 64 }} disabled={i === 0 || !canWrite} /><input aria-label={`Band ${i + 1} label`} value={b.label} onChange={(e) => setBands(bands.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} style={{ width: 130 }} disabled={!canWrite} /></span>)}<button type="button" className="btn sm" disabled={!canWrite} onClick={() => patch({ scoreBands: bands }, "Bands saved")}>Save bands</button></div>
       </Card>
       <Card title="Thresholds & definitions">

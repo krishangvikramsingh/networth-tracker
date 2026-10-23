@@ -67,7 +67,7 @@ function GlobalSearch() {
     if (state) {
       for (const h of state.data.holdings.filter((h) => !h.archived)) out.push({ label: h.name, sub: "Holding", to: `/assets?q=${encodeURIComponent(h.name)}` });
       for (const l of state.data.liabilities.filter((l) => !l.archived)) out.push({ label: l.name, sub: "Liability", to: `/assets?tab=liabilities&q=${encodeURIComponent(l.name)}` });
-      for (const a of state.alerts.filter((a) => a.status !== "resolved")) out.push({ label: a.ruleName + (a.subject ? ` — ${a.subject}` : ""), sub: "Alert", to: `/alerts?open=${a.id}` });
+      for (const a of state.alerts.filter((a) => a.status !== "resolved")) out.push({ label: a.ruleName + (a.subject ? `: ${a.subject}` : ""), sub: "Alert", to: `/alerts?open=${a.id}` });
     }
     return out;
   }, [state]);
@@ -127,7 +127,7 @@ export function App() {
           return (<div key={n.to} style={{ display: "contents" }}>{g && <div className="grp">{g}</div>}
             <NavLink to={n.to} end={n.to === "/"} className={({ isActive }) => (isActive ? "active" : "")}><Icon d={n.icon} />{n.label}{n.to === "/alerts" && openAlerts > 0 && <span className="badge-count">{openAlerts}<span className="sr-only"> open alerts</span></span>}</NavLink></div>);
         })}
-        <div style={{ marginTop: "auto", padding: "14px 10px 0", fontSize: 11.5, color: "#7d93ab" }}>Educational tool. Not investment advice.<br />Synthetic demo data.</div>
+        <div style={{ marginTop: "auto", padding: "14px 10px 0", fontSize: 12.5, color: "var(--ink-3)" }}>Educational tool. Not investment advice.<br />Synthetic demo data.</div>
         <button type="button" className="btn show-sm" style={{ margin: "10px 10px 0", justifyContent: "center" }} onClick={async () => { await api.post("/api/auth/logout"); setUser(null); }}>Sign out ({user.name})</button>
       </nav>
       <div className="main">

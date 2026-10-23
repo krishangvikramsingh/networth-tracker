@@ -42,34 +42,57 @@ export function Overview() {
   const hasTrend = trend.length >= 1;
 
   const alloc = ev.allocation[ev.activeDenominator].filter((r) => r.inDenominator && (r.targetPct != null || (r.pct ?? 0) > 0));
-  const incomeMonthly = [{ name: "Income", value: cash.monthlyIncome, color: "var(--s3)" }, { name: "Outflows", value: cash.monthlyOutflows, color: "var(--s2)" }, { name: "Net", value: cash.monthlySurplus, color: "var(--s1)" }];
+  const incomeMonthly = [{ name: "Income", value: cash.monthlyIncome, color: "var(--s1)" }, { name: "Outflows", value: cash.monthlyOutflows, color: "var(--s2)" }, { name: "Net", value: cash.monthlySurplus, color: "var(--s1)" }];
   const commitments = d.commitments.filter((c) => !c.archived);
   const recentTx = [...d.transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
 
   const awaitingNW = nw.netWorth == null;
   return (
     <>
-      <PageHead title={`Wealth overview — ${d.client.name}`} subtitle={d.settings.profileNote ?? "Live view of assets, liabilities, cash flow and rule status. Missing information is shown as “Awaiting data” — never as zero."}
+      <PageHead title={`Wealth overview: ${d.client.name}`} subtitle={d.settings.profileNote ?? "Live view of assets, liabilities, cash flow and rule status. Missing information is shown as “Awaiting data”, never as zero."}
         actions={<button type="button" className="btn" onClick={snap} disabled={!canWrite}><Icon d={ICONS.cal} />Record snapshot</button>} />
 
       {(nw.liabilitiesStatus !== "complete" || ev.completeness.percent < 100) && d.client.kind === "live" && (
         <div style={{ marginBottom: 16 }}><Banner tone="warn" title={`Data completeness ${ev.completeness.percent.toFixed(0)}%.`}>
-          {nw.liabilitiesStatus === "not_assessed" ? "Liabilities have not been assessed, so net worth is not calculated — the gross asset total is an upper bound. " : nw.liabilitiesStatus === "partial" ? "Liabilities are only partly recorded, so net worth is provisional. " : ""}
+          {nw.liabilitiesStatus === "not_assessed" ? "Liabilities have not been assessed, so net worth is not calculated, the gross asset total is an upper bound. " : nw.liabilitiesStatus === "partial" ? "Liabilities are only partly recorded, so net worth is provisional. " : ""}
           <Link to="/data">Review what is still needed →</Link></Banner></div>)}
 
       <div className="stack">
         <div className="hero">
           <Kpi label="Gross assets" value={formatCompact(nw.grossAssets)} sub={`${pf.lines.length} positions · ${formatINR(nw.grossAssets)}`} onClick={() => setOpen("gross")} />
           <Kpi label="Calculated net worth" await={awaitingNW} value={nw.netWorth != null ? formatCompact(nw.netWorth) : undefined}
-            sub={awaitingNW ? `Upper bound ${formatCompact(nw.upperBound)} before liabilities` : nw.provisional ? "Provisional — liabilities incomplete" : "Assets − liabilities"} badge={nw.provisional && !awaitingNW ? <Badge tone="warn">provisional</Badge> : undefined} onClick={() => setOpen("nw")} />
-          <Kpi label="Confirmed liabilities" await={nw.liabilitiesStatus === "not_assessed"} value={formatCompact(nw.liabilities)} sub={nw.liabilitiesStatus === "not_assessed" ? "Not yet assessed — not zero" : nw.liabilitiesStatus === "partial" ? "Partly recorded" : "All recorded"}
+            sub={awaitingNW ? <>Upper bound {formatCompact(nw.upperBound)} before liabilities<span className="unknown" role="img" aria-label="Net worth could be anywhere up to the upper bound until liabilities are assessed" /></> : nw.provisional ? "Provisional, liabilities incomplete" : "Assets − liabilities"} badge={nw.provisional && !awaitingNW ? <Badge tone="warn">provisional</Badge> : undefined} onClick={() => setOpen("nw")} />
+          <Kpi label="Confirmed liabilities" await={nw.liabilitiesStatus === "not_assessed"} value={formatCompact(nw.liabilities)} sub={nw.liabilitiesStatus === "not_assessed" ? "Not yet assessed, not zero" : nw.liabilitiesStatus === "partial" ? "Partly recorded" : "All recorded"}
             badge={nw.liabilitiesStatus !== "complete" ? <Badge tone="warn">{nw.liabilitiesStatus === "partial" ? "partial" : "pending"}</Badge> : undefined} onClick={() => setOpen("liab")} />
+        </div>
+        <div className="grid g-main">
+          <Card title="Alerts & recommended actions" actions={<Link className="small" to="/alerts">All alerts ({alerts.length})</Link>} pad={false}>
+            {real.length === 0 ? <div className="card-b"><Empty title="No rule breaches right now">{gaps.length ? `${gaps.length} data notice(s) need information before some rules can run.` : "All evaluable rules are within limits."}</Empty></div>
+              : real.slice(0, 4).map((a) => (
+                <button type="button" key={a.id} className="alert-row" onClick={() => nav(`/alerts?open=${a.id}`)}>
+                  <span className={`sev ${a.severity}`} />
+                  <span><b>{a.ruleName}</b> <span className="muted">· {a.subject}</span>{a.kind === "possible" && <> <Badge tone="warn">possible</Badge></>}<div className="small sec">{a.why}</div><div className="small" style={{ marginTop: 3 }}><b>Action:</b> {a.action}</div></span>
+                  <span className="right"><SevBadge s={a.severity} /><div className="small muted num" style={{ marginTop: 4 }}>{a.currentLabel}</div></span>
+                </button>))}
+            {gaps.length > 0 && <div className="card-b small muted">+ {gaps.length} data notice{gaps.length > 1 ? "s" : ""} (rules that cannot run until information is supplied), <Link to="/alerts?tab=data">view</Link></div>}
+          </Card>
+          <div className="stack">
+          <Card title="Recent transactions" actions={<AddButton onClick={() => setAdding("transactions")}>Record</AddButton>}>
+            {recentTx.length === 0 ? <Empty title="No transactions recorded">Dated purchases, contributions, withdrawals and distributions power XIRR and the net-worth change analysis.</Empty> : (
+              <table className="tbl"><tbody>{recentTx.map((t) => <tr key={t.id}><td>{fmtDate(t.date)}</td><td>{t.type}</td><td className="r num">{formatCompact(t.amount)}</td></tr>)}</tbody></table>)}
+          </Card>
+          <Card title="Goal progress" actions={<Link className="small" to="/goals">Manage</Link>}>
+            {ev.goals.length === 0 ? <Empty title="No goals yet" action={<Link className="btn" to="/goals">Create a goal</Link>}>Add retirement, property or education goals to track funding gaps.</Empty>
+              : <div className="stack" style={{ gap: 12 }}>{ev.goals.map((g) => (<div key={g.goal.id}><div className="row between small"><b>{g.goal.name}</b><span className="num">{formatPct(g.progressPct, 0)}</span></div>
+                <Meter label={`${g.goal.name} ${formatPct(g.progressPct, 0)}`} parts={[{ value: g.goal.earmarkedAmount, color: "var(--s1)", label: "Earmarked" }, { value: g.gap, color: "var(--surface-2)", label: "Gap" }]} /><div className="small muted">{formatCompact(g.goal.earmarkedAmount)} of {formatCompact(g.goal.targetAmount)} · {g.onTrack ? "on track" : `gap ${formatCompact(g.projectedGap)}`}</div></div>))}</div>}
+          </Card>
+          </div>
         </div>
         <div className="section-title">Position and liquidity</div>
         <div className="kpi-group">
           <Kpi label="Change in net worth (1 month)" await={!nw.changeMonth.comparable} value={nw.changeMonth.percent != null ? `${nw.changeMonth.percent >= 0 ? "+" : ""}${nw.changeMonth.percent.toFixed(2)}%` : undefined}
             tone={nw.changeMonth.percent != null ? (nw.changeMonth.percent >= 0 ? "good" : "crit") : ""} sub={nw.changeMonth.comparable ? `${formatCompact(nw.changeMonth.absolute)} since ${fmtDate(nw.changeMonth.previous!.date)}` : nw.changeMonth.reason} onClick={() => setOpen("change")} />
-          <Kpi label="Remaining commitments" value={formatCompact(nw.commitmentsRemaining)} sub={nw.adjustedNetWorth != null ? `Adjusted net worth ${formatCompact(nw.adjustedNetWorth)}` : "Shown separately — not deducted from net worth"} />
+          <Kpi label="Remaining commitments" value={formatCompact(nw.commitmentsRemaining)} sub={nw.adjustedNetWorth != null ? `Adjusted net worth ${formatCompact(nw.adjustedNetWorth)}` : "Shown separately, not deducted from net worth"} />
           <Kpi label="Liquid assets" value={formatCompact(pf.liquidAssets)} sub={`${formatPct(pct(pf.liquidAssets, nw.grossAssets))} of gross · tiers 1–2`} onClick={() => setOpen("liquid")} />
           <Kpi label="Emergency-fund coverage" await={ev.emergencyCoverageMonths == null} value={ev.emergencyCoverageMonths != null ? `${ev.emergencyCoverageMonths.toFixed(1)} months` : undefined} sub={`Target ${d.settings.emergencyMonthsTarget} months · reserves ${formatCompact(pf.emergencyReserves)}`} onClick={() => setOpen("emerg")} />
           <Kpi label="Financial-health score" await={ev.health.overall == null} value={ev.health.overall != null ? `${ev.health.overall.toFixed(0)} / 100` : undefined} sub={ev.health.overall != null ? `${ev.health.band} · ${ev.health.provisional ? "provisional · " : ""}${(ev.health.coverage * 100).toFixed(0)}% of weight assessed` : "No component can be assessed yet"} badge={ev.health.provisional ? <Badge tone="warn">provisional</Badge> : undefined} onClick={() => nav("/health")} />
@@ -85,17 +108,17 @@ export function Overview() {
         </div>
         <div className="section-title">Cash flow (monthly equivalents)</div>
         <div className="kpi-group">
-          <Kpi label="Monthly income" await={!cash.hasIncome} value={formatCompact(cash.monthlyIncome)} sub={cash.incomeAssessed ? "All income recorded" : "Partial — only items supplied so far"} badge={cash.hasIncome && !cash.incomeAssessed ? <Badge tone="warn">partial</Badge> : undefined} onClick={() => setOpen("inc")} />
+          <Kpi label="Monthly income" await={!cash.hasIncome} value={formatCompact(cash.monthlyIncome)} sub={cash.incomeAssessed ? "All income recorded" : "Partial, only items supplied so far"} badge={cash.hasIncome && !cash.incomeAssessed ? <Badge tone="warn">partial</Badge> : undefined} onClick={() => setOpen("inc")} />
           <Kpi label="Monthly expenses" await={cash.monthlyOutflows === 0} value={formatCompact(cash.monthlyOutflows)} sub={`${formatCompact(cash.monthlyOutflows * 12)} per year`} onClick={() => setOpen("exp")} />
           <Kpi label="Monthly cash-flow surplus / deficit" await={!cash.hasIncome && cash.monthlyOutflows === 0} value={formatCompact(cash.monthlySurplus)} tone={cash.monthlySurplus < 0 ? "crit" : "good"}
             sub={cash.savingsRate != null ? `Savings rate ${formatPct(cash.savingsRate)}${cash.incomeAssessed ? "" : " · provisional"}` : "Savings rate needs complete income"} badge={!cash.incomeAssessed ? <Badge tone="warn">provisional</Badge> : undefined} onClick={() => setOpen("cf")} />
         </div>
 
         <div className="grid g2">
-          <ChartCard title="Net-worth trend" subtitle="From recorded month-end snapshots only — no estimated history." height={250}
+          <ChartCard title="Net-worth trend" subtitle="From recorded month-end snapshots only, no estimated history." height={250}
             empty={!hasTrend ? <Empty title="No history yet" action={<button type="button" className="btn primary" onClick={snap}><Icon d={ICONS.cal} />Record today's snapshot</button>}>Historical net worth is never fabricated. Record a snapshot each month-end (or enter earlier ones from the Data collection page) to build the trend.</Empty> : undefined}
             table={{ headers: ["Month", "Gross assets", "Net worth"], rows: trend.map((t) => [t.label, formatCompact(t.assets), t.nw == null ? "n/a" : formatCompact(t.nw)]) }}>
-            <TrendChart data={trend} area series={[{ key: "assets", label: "Gross assets", color: "var(--s1)" }, { key: "nw", label: "Net worth", color: "var(--s3)" }]} />
+            <TrendChart data={trend} area series={[{ key: "assets", label: "Gross assets", color: "var(--s3)" }, { key: "nw", label: "Net worth", color: "var(--s1)" }]} />
           </ChartCard>
           <ChartCard title="Asset allocation" subtitle={`Denominator: ${pf.denominators[den].label} (${formatCompact(denVal)})`} height={250}
             actions={<Segmented label="Allocation denominator" value={den} onChange={setDen} options={[{ id: "gross", label: "Gross" }, { id: "investable", label: "Investable" }, { id: "investments_ex_property", label: "Ex-property & cash" }]} />}
@@ -127,48 +150,27 @@ export function Overview() {
           </ChartCard>
           <ChartCard title="12-month cash flow (dated)" subtitle={ev.forecast.unscheduled.length ? `${ev.forecast.unscheduled.length} undated item(s) excluded` : "From scheduled dates"} height={220}
             table={{ headers: ["Month", "Inflow", "Outflow", "Net"], rows: ev.forecast.months.map((m) => [m.label, formatCompact(m.inflow), formatCompact(m.outflow), formatCompact(m.net)]) }}>
-            <BarsChart data={ev.forecast.months.map((m) => ({ name: m.label.slice(0, 3), inflow: m.inflow, outflow: m.outflow }))} series={[{ key: "inflow", label: "Inflow", color: "var(--s3)" }, { key: "outflow", label: "Outflow", color: "var(--s2)" }]} />
+            <BarsChart data={ev.forecast.months.map((m) => ({ name: m.label.slice(0, 3), inflow: m.inflow, outflow: m.outflow }))} series={[{ key: "inflow", label: "Inflow", color: "var(--s1)" }, { key: "outflow", label: "Outflow", color: "var(--s2)" }]} />
           </ChartCard>
         </div>
 
-        <div className="grid g3">
-          <Card title="Pension commitment" subtitle="Contractual premium — not a loan">
+        <div className="grid g2">
+          <Card title="Pension commitment" subtitle="Contractual premium, not a loan">
             {commitments.length === 0 ? <Empty title="No commitments recorded" /> : commitments.map((c) => (
               <div key={c.id} className="stack" style={{ gap: 8 }}>
                 <div className="row between"><b>{c.name}</b><Badge tone={c.nextDueDate ? "good" : "warn"}>{c.nextDueDate ? `next ${fmtDate(c.nextDueDate)}` : "schedule pending"}</Badge></div>
-                <Meter label={`Paid ${formatCompact(c.paidAmount)} of ${formatCompact(c.totalAmount)}`} parts={[{ value: c.paidAmount, color: "var(--s3)", label: "Paid" }, { value: c.totalAmount - c.paidAmount, color: "var(--s4)", label: "Remaining" }]} />
+                <Meter label={`Paid ${formatCompact(c.paidAmount)} of ${formatCompact(c.totalAmount)}`} parts={[{ value: c.paidAmount, color: "var(--s1)", label: "Paid" }, { value: c.totalAmount - c.paidAmount, color: "var(--s4)", label: "Remaining" }]} />
                 <div className="row between small"><span><b className="num">{formatCompact(c.paidAmount)}</b> paid ({formatPct(pct(c.paidAmount, c.totalAmount), 0)})</span><span><b className="num">{formatCompact(c.totalAmount - c.paidAmount)}</b> remaining</span></div>
                 {c.annualReceivable ? <div className="small muted">Annual pension receivable {formatCompact(c.annualReceivable)} (≈ {formatINR(Math.round(c.annualReceivable / 12))}/month for analysis only).</div> : null}
               </div>))}
           </Card>
-          <Card title="Goal progress" actions={<Link className="small" to="/goals">Manage</Link>}>
-            {ev.goals.length === 0 ? <Empty title="No goals yet" action={<Link className="btn" to="/goals">Create a goal</Link>}>Add retirement, property or education goals to track funding gaps.</Empty>
-              : <div className="stack" style={{ gap: 12 }}>{ev.goals.map((g) => (<div key={g.goal.id}><div className="row between small"><b>{g.goal.name}</b><span className="num">{formatPct(g.progressPct, 0)}</span></div>
-                <Meter label={`${g.goal.name} ${formatPct(g.progressPct, 0)}`} parts={[{ value: g.goal.earmarkedAmount, color: "var(--s1)", label: "Earmarked" }, { value: g.gap, color: "var(--surface-2)", label: "Gap" }]} /><div className="small muted">{formatCompact(g.goal.earmarkedAmount)} of {formatCompact(g.goal.targetAmount)} · {g.onTrack ? "on track" : `gap ${formatCompact(g.projectedGap)}`}</div></div>))}</div>}
-          </Card>
           <Card title="Data completeness" actions={<Link className="small" to="/data">Open</Link>}>
             <div className="row between"><b style={{ fontSize: 24 }} className="num">{ev.completeness.percent.toFixed(0)}%</b><span className="small muted">{ev.completeness.items.filter((i) => i.status === "collected").length} of {ev.completeness.items.filter((i) => i.status !== "not_applicable").length} items collected</span></div>
-            <div style={{ margin: "8px 0 12px" }}><Meter label="Completeness" parts={[{ value: ev.completeness.percent, color: "var(--s3)", label: "done" }, { value: 100 - ev.completeness.percent, color: "var(--surface-2)", label: "left" }]} /></div>
+            <div style={{ margin: "8px 0 12px" }}><Meter label="Completeness" parts={[{ value: ev.completeness.percent, color: "var(--s1)", label: "done" }, { value: 100 - ev.completeness.percent, color: "var(--surface-2)", label: "left" }]} /></div>
             <ul style={{ margin: 0, paddingLeft: 18 }} className="small">{ev.completeness.items.filter((i) => i.status === "pending" || i.status === "needs_review").slice(0, 5).map((i) => <li key={i.key}>{i.label} <Badge tone={i.status === "pending" ? "warn" : "serious"}>{i.status === "pending" ? "pending" : "review"}</Badge></li>)}</ul>
           </Card>
         </div>
 
-        <div className="grid g-main">
-          <Card title="Alerts & recommended actions" actions={<Link className="small" to="/alerts">All alerts ({alerts.length})</Link>} pad={false}>
-            {real.length === 0 ? <div className="card-b"><Empty title="No rule breaches right now">{gaps.length ? `${gaps.length} data notice(s) need information before some rules can run.` : "All evaluable rules are within limits."}</Empty></div>
-              : real.slice(0, 6).map((a) => (
-                <button type="button" key={a.id} className="alert-row" onClick={() => nav(`/alerts?open=${a.id}`)}>
-                  <span className={`sev ${a.severity}`} />
-                  <span><b>{a.ruleName}</b> <span className="muted">· {a.subject}</span>{a.kind === "possible" && <> <Badge tone="warn">possible</Badge></>}<div className="small sec">{a.why}</div><div className="small" style={{ marginTop: 3 }}><b>Action:</b> {a.action}</div></span>
-                  <span className="right"><SevBadge s={a.severity} /><div className="small muted num" style={{ marginTop: 4 }}>{a.currentLabel}</div></span>
-                </button>))}
-            {gaps.length > 0 && <div className="card-b small muted">+ {gaps.length} data notice{gaps.length > 1 ? "s" : ""} (rules that cannot run until information is supplied) — <Link to="/alerts?tab=data">view</Link></div>}
-          </Card>
-          <Card title="Recent transactions" actions={<AddButton onClick={() => setAdding("transactions")}>Record</AddButton>}>
-            {recentTx.length === 0 ? <Empty title="No transactions recorded">Dated purchases, contributions, withdrawals and distributions power XIRR and the net-worth change analysis.</Empty> : (
-              <table className="tbl"><tbody>{recentTx.map((t) => <tr key={t.id}><td>{fmtDate(t.date)}</td><td>{t.type}</td><td className="r num">{formatCompact(t.amount)}</td></tr>)}</tbody></table>)}
-          </Card>
-        </div>
       </div>
 
       {adding && <EntityForm entity="transactions" onClose={() => setAdding(null)} />}

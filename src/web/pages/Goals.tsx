@@ -15,7 +15,7 @@ export function GoalsPage() {
   const g = ev.goals;
   return (
     <>
-      <PageHead title="Goals & wealth progress" subtitle="Actual earmarked amounts are shown separately from projections. Projections use only the return assumption you enter (default 0%) — they are scenarios, not forecasts or promises."
+      <PageHead title="Goals & wealth progress" subtitle="Actual earmarked amounts are shown separately from projections. Projections use only the return assumption you enter (default 0%), they are scenarios, not forecasts or promises."
         actions={<AddButton onClick={() => setForm("new")}>New goal</AddButton>} />
       {g.length === 0 ? <Card><Empty title="No goals yet" action={canWrite ? <button type="button" className="btn primary" onClick={() => setForm("new")}>Create your first goal</button> : undefined}>Retirement, property purchase, education, business capital, emergency reserve or long-term wealth creation.</Empty></Card> : (
         <div className="stack">
@@ -34,7 +34,7 @@ export function GoalsPage() {
                   {x.requiredMonthly != null && !x.onTrack && <div className="small">≈ {formatCompact(x.requiredMonthly)} / month needed to close the gap.</div>}<div className="small muted">{x.assumption}</div></div></div>
               </Card>))}
           </div>
-          <Banner>Earmarked amounts are bookkeeping labels — they don’t move money or reduce your net worth.</Banner>
+          <Banner>Earmarked amounts are bookkeeping labels, they don’t move money or reduce your net worth.</Banner>
         </div>)}
       {form && <EntityForm entity="goals" initial={form === "new" ? undefined : form} onClose={() => setForm(null)} />}
     </>

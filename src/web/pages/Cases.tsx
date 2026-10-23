@@ -29,7 +29,7 @@ export function CasesPage() {
   const row = (label: string, f: (c: AppState) => string) => <tr><td className="muted">{label}</td>{list.map((c) => <td key={c.data.client.id} className="r num">{f(c)}</td>)}</tr>;
   return (
     <>
-      <PageHead title="Investor case studies" subtitle="Three separate illustrative investors from the project brief. They live in their own records — nothing here touches Priya’s portfolio, history or alerts." />
+      <PageHead title="Investor case studies" subtitle="Three separate illustrative investors from the project brief. They live in their own records, nothing here touches Priya’s portfolio, history or alerts." />
       <Banner tone="info" title="What is given vs assumed.">Case A’s assets (₹10 Cr) and liabilities (₹5 Cr) are from the brief. For B (50:50) and C (70:30) only the growth:defensive ratio is given; the ₹10 Cr base, sub-allocations, loans, income and expenses are <b>illustrative assumptions</b> you can edit by opening the case as a client.</Banner>
       <div className="stack" style={{ marginTop: 16 }}>
         <Card title="Side-by-side comparison" pad={false}>

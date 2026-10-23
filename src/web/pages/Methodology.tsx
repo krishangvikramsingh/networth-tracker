@@ -2,11 +2,11 @@ import { Badge, Card, PageHead } from "../ui";
 import { RULE_DEFS } from "@shared/rules";
 
 const INTEG: Array<[string, string, string]> = [
-  ["Demo sample data", "Working — deterministic values labelled “sample”", "Demo"],
-  ["Manual CSV upload (any symbol)", "Working — validated and timestamped", "Live (user-supplied)"],
+  ["Demo sample data", "Working, deterministic values labelled “sample”", "Demo"],
+  ["Manual CSV upload (any symbol)", "Working, validated and timestamped", "Live (user-supplied)"],
   ["AMFI mutual-fund NAVs", "Implemented against the documented public NAVAll file; parser unit-tested; endpoint not reachable from the build sandbox", "Not verified live"],
-  ["NSE (NIFTY 500, REITs, InvITs, bonds)", "Adapter slot only — licensed data; set NSE_DATA_API_KEY and implement vendor call", "Needs credentials"],
-  ["S&P 500", "Adapter slot only — vendor licence required; set SP500_DATA_API_KEY", "Needs credentials"],
+  ["NSE (NIFTY 500, REITs, InvITs, bonds)", "Adapter slot only, licensed data; set NSE_DATA_API_KEY and implement vendor call", "Needs credentials"],
+  ["S&P 500", "Adapter slot only, vendor licence required; set SP500_DATA_API_KEY", "Needs credentials"],
 ];
 
 export function MethodologyPage() {
@@ -18,7 +18,7 @@ export function MethodologyPage() {
           <dl className="dl">
             <dt>Money</dt><dd>Stored as integer paise (exact arithmetic); shown in Indian grouping with ₹, lakh and crore.</dd>
             <dt>Gross assets</dt><dd>Σ current value of unique positions. An aggregate holding is replaced by its underlying schemes/securities; any unexplained difference stays as one “unallocated remainder”. If underlying positions exceed the aggregate you must confirm the new total.</dd>
-            <dt>Net worth</dt><dd>Gross assets − confirmed outstanding liabilities. Withheld while liabilities are “not assessed”; marked provisional while “partial”. Future contractual premiums are <i>commitments</i>, reported separately and in an “adjusted” view — they are not debts.</dd>
+            <dt>Net worth</dt><dd>Gross assets − confirmed outstanding liabilities. Withheld while liabilities are “not assessed”; marked provisional while “partial”. Future contractual premiums are <i>commitments</i>, reported separately and in an “adjusted” view, they are not debts.</dd>
             <dt>Absolute return</dt><dd>Current value − invested capital, % of capital, on holdings with cost recorded (coverage disclosed). Not time-weighted; ignores timing of flows, fees and distributions.</dd>
             <dt>XIRR</dt><dd>Solves Σ CFᵢ ÷ (1+r)^((dᵢ−d₀)/365) = 0 over dated purchases/contributions (outflows), withdrawals/distributions (inflows) and today’s valuation. Without dated flows: “Insufficient cash-flow history”.</dd>
             <dt>Allocation %</dt><dd>Class value ÷ chosen denominator (gross · investable excl. direct property · investments excl. property & cash). The denominator is always displayed.</dd>
@@ -36,9 +36,9 @@ export function MethodologyPage() {
         <Card title="Rule catalogue" pad={false}><div className="tbl-wrap card-b"><table className="tbl"><thead><tr><th>Rule</th><th>Default</th><th>Calculation</th><th>Trigger</th></tr></thead><tbody>
           {RULE_DEFS.map((r) => <tr key={r.key}><td><b>{r.name}</b><div className="small muted">{r.group}</div></td><td className="nowrap num">{r.defaults.unit === "₹" ? "₹" + (r.defaults.value / 100).toLocaleString("en-IN") : `${r.defaults.value} ${r.defaults.unit}`}<div className="small muted">{r.defaults.severity}</div></td><td className="small">{r.calc}</td><td className="small">{r.trigger}</td></tr>)}</tbody></table></div></Card>
         <Card title="Financial-health score">
-          <p>Six components, each 0–100 by documented piecewise-linear rules, combined with editable weights (default 20/20/20/15/15/10). Components lacking data are <b>unassessed</b>: excluded and the remaining weights re-normalised, never scored as perfect or zero; the result is labelled provisional with the share of weight assessed. Educational only — not a credit-bureau rating.</p>
+          <p>Six components, each 0–100 by documented piecewise-linear rules, combined with editable weights (default 20/20/20/15/15/10). Components lacking data are <b>unassessed</b>: excluded and the remaining weights re-normalised, never scored as perfect or zero; the result is labelled provisional with the share of weight assessed. Educational only, not a credit-bureau rating.</p>
         </Card>
-        <Card title="Market-data integrations — honest status"><table className="tbl"><tbody>{INTEG.map(([a, b, c]) => <tr key={a}><td><b>{a}</b></td><td className="small">{b}</td><td><Badge tone={c === "Demo" ? "warn" : c.startsWith("Live") ? "good" : c === "Not verified live" ? "info" : "serious"}>{c}</Badge></td></tr>)}</tbody></table></Card>
+        <Card title="Market-data integrations, honest status"><table className="tbl"><tbody>{INTEG.map(([a, b, c]) => <tr key={a}><td><b>{a}</b></td><td className="small">{b}</td><td><Badge tone={c === "Demo" ? "warn" : c.startsWith("Live") ? "good" : c === "Not verified live" ? "info" : "serious"}>{c}</Badge></td></tr>)}</tbody></table></Card>
         <Card title="Spreadsheet tracker vs financial-intelligence application">
           <table className="tbl"><thead><tr><th></th><th>Spreadsheet</th><th>This application</th></tr></thead><tbody>
             <tr><td>Data integrity</td><td>Free-form cells; silent errors</td><td>Typed records, validation, audit trail, duplicate-import blocking</td></tr>

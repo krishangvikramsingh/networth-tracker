@@ -39,7 +39,7 @@ export function CashflowPage() {
   const incomeStatus = d.settings.incomeStatus;
   return (
     <>
-      <PageHead title="Cash-flow planner" subtitle="Monthly and annual planning with a dated 12-month forecast. Only income and expenses you have actually supplied are used — nothing is inferred."
+      <PageHead title="Cash-flow planner" subtitle="Monthly and annual planning with a dated 12-month forecast. Only income and expenses you have actually supplied are used, nothing is inferred."
         actions={<><AddButton onClick={() => setForm({ defaults: { kind: "income", category: "salary" } })}>Add income</AddButton><button type="button" className="btn" disabled={!canWrite} onClick={() => setForm({ defaults: { kind: "expense", category: "household" } })}><Icon d={ICONS.plus} />Add expense</button></>} />
       {incomeStatus !== "complete" && (
         <div style={{ marginBottom: 16 }}><Banner tone="warn" title="Income is not marked complete.">Only the items below have been supplied, so surplus and savings rate are provisional. {canWrite && <>When every income source is entered: <button type="button" className="btn sm" onClick={() => run(() => api.patch(`/api/clients/${clientId}/settings`, { incomeStatus: "complete" }), "Income marked complete")}>mark income complete</button></>}</Banner></div>)}
@@ -67,7 +67,7 @@ export function CashflowPage() {
           <div className="grid g2">
             <Card title="Recurring vs one-off"><dl className="dl"><dt>Recurring outflows / month</dt><dd className="num">{formatINR(cash.recurringMonthlyOutflow)}</dd><dt>One-off outflows</dt><dd className="num">{formatINR(cash.oneOffOutflows)}</dd><dt>Essential / month</dt><dd className="num">{formatINR(cash.essentialMonthly)}</dd><dt>EMIs / month</dt><dd className="num">{formatINR(cash.emiMonthly)}</dd></dl></Card>
             <Card title="Commitments vs reserves">
-              {fc.commitmentCoverage == null ? <p className="small muted">No outstanding commitments.</p> : <><p><b className="num">{fc.commitmentCoverage.toFixed(1)}×</b> — emergency-eligible reserves ({formatCompact(ev.portfolio.emergencyReserves)}) over remaining commitments ({formatCompact(ev.netWorth.commitmentsRemaining)}).</p>
+              {fc.commitmentCoverage == null ? <p className="small muted">No outstanding commitments.</p> : <><p><b className="num">{fc.commitmentCoverage.toFixed(1)}×</b>, emergency-eligible reserves ({formatCompact(ev.portfolio.emergencyReserves)}) over remaining commitments ({formatCompact(ev.netWorth.commitmentsRemaining)}).</p>
                 <p className="small muted">{formatCompact(fc.scheduledCommitments)} of the commitments is scheduled in the next 12 months; {formatCompact(fc.unscheduledCommitments)} has no payment schedule yet. Coverage is not a recommendation to use emergency funds for premiums.</p></>}
             </Card>
           </div>
@@ -81,10 +81,10 @@ export function CashflowPage() {
             <Kpi label="Opening bank balance" await={fc.openingBalance == null} value={formatCompact(fc.openingBalance)} sub={fc.openingBalance == null ? "Add bank/cash balances to forecast a running balance" : "From bank & cash holdings"} />
           </div>
           {fc.unscheduled.length > 0 && <Banner tone="warn" title={`${fc.unscheduled.length} item(s) can’t be placed on the calendar.`}>
-            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{fc.unscheduled.map((u, i) => <li key={i}>{u.label}: <b>{formatCompact(u.amount)}</b> ({u.kind}) — {u.reason}</li>)}</ul>Give them a date and they will appear in the right month rather than being spread evenly.</Banner>}
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{fc.unscheduled.map((u, i) => <li key={i}>{u.label}: <b>{formatCompact(u.amount)}</b> ({u.kind}), {u.reason}</li>)}</ul>Give them a date and they will appear in the right month rather than being spread evenly.</Banner>}
           <ChartCard title="Monthly dated cash flow" subtitle="Premiums, maturities, EMIs and receipts in the months they actually fall due" height={280}
             table={{ headers: ["Month", "Inflow", "Outflow", "Net", "Balance"], rows: fc.months.map((m) => [m.label, formatCompact(m.inflow), formatCompact(m.outflow), formatCompact(m.net), m.balance == null ? "—" : formatCompact(m.balance)]) }}>
-            <BarsChart data={fc.months.map((m) => ({ name: m.label.slice(0, 3), inflow: m.inflow, outflow: m.outflow }))} series={[{ key: "inflow", label: "Inflow", color: "var(--s3)" }, { key: "outflow", label: "Outflow", color: "var(--s2)" }]} />
+            <BarsChart data={fc.months.map((m) => ({ name: m.label.slice(0, 3), inflow: m.inflow, outflow: m.outflow }))} series={[{ key: "inflow", label: "Inflow", color: "var(--s1)" }, { key: "outflow", label: "Outflow", color: "var(--s2)" }]} />
           </ChartCard>
           {fc.openingBalance != null && <ChartCard title="Forecast bank balance" height={230}><TrendChart data={fc.months.map((m) => ({ label: m.label, balance: m.balance }))} series={[{ key: "balance", label: "Balance", color: "var(--s1)" }]} area /></ChartCard>}
           <Card title="Scheduled events">

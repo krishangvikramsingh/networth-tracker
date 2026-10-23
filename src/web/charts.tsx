@@ -3,7 +3,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend as RLegend,
 import { formatCompact } from "@shared/money";
 import { Card, Icon, ICONS } from "./ui";
 
-const axis = { fontSize: 11, fill: "var(--ink-3)" };
+const axis = { fontSize: 12, fill: "var(--ink-3)" };
 const grid = <CartesianGrid stroke="var(--grid)" strokeDasharray="2 4" vertical={false} />;
 export const money = (v: unknown) => formatCompact(Number(v));
 
@@ -64,12 +64,12 @@ export function BarsChart({ data, series, xKey = "name", layout = "vertical", st
   const horizontal = layout === "horizontal";
   return (
     <ResponsiveContainer>
-      <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 16, right: 12, bottom: 0, left: horizontal ? 12 : 0 }} barCategoryGap={data.length > 8 ? "12%" : "28%"} barGap={2}>
+      <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 16, right: 12, bottom: 0, left: horizontal ? 12 : 6 }} barCategoryGap={data.length > 8 ? "12%" : "28%"} barGap={2}>
         {grid}
         {horizontal ? <><XAxis type="number" tick={axis} tickFormatter={yFmt ?? money} axisLine={false} tickLine={false} /><YAxis type="category" dataKey={xKey} tick={axis} width={120} axisLine={false} tickLine={false} /></>
-          : <><XAxis dataKey={xKey} tick={axis} axisLine={{ stroke: "var(--border-strong)" }} tickLine={false} interval={0} /><YAxis tick={axis} tickFormatter={yFmt ?? money} width={58} axisLine={false} tickLine={false} /></>}
+          : <><XAxis dataKey={xKey} tick={axis} axisLine={{ stroke: "var(--border-strong)" }} tickLine={false} interval={0} /><YAxis tick={axis} tickFormatter={yFmt ?? money} width={66} axisLine={false} tickLine={false} /></>}
         <Tooltip content={<TipBox fmt={fmt} />} cursor={{ fill: "var(--surface-2)", opacity: 0.6 }} />
-        <RLegend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
+        <RLegend wrapperStyle={{ fontSize: 13 }} iconType="circle" iconSize={8} formatter={(v) => <span style={{ color: "var(--ink-2)" }}>{v}</span>} />
         {series.map((s) => <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} stackId={stack ? "a" : undefined} radius={stack ? 0 : horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]} maxBarSize={36} stroke="var(--surface)" strokeWidth={stack ? 2 : 0} isAnimationActive={false} />)}
       </BarChart>
     </ResponsiveContainer>
@@ -80,12 +80,12 @@ export function TrendChart({ data, series, area, fmt, yFmt }: { data: Array<Reco
   const C: any = area ? AreaChart : LineChart;
   return (
     <ResponsiveContainer>
-      <C data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+      <C data={data} margin={{ top: 8, right: 12, bottom: 0, left: 6 }}>
         {grid}
         <XAxis dataKey="label" tick={axis} axisLine={{ stroke: "var(--border-strong)" }} tickLine={false} minTickGap={24} />
-        <YAxis tick={axis} tickFormatter={yFmt ?? money} width={58} axisLine={false} tickLine={false} />
+        <YAxis tick={axis} tickFormatter={yFmt ?? money} width={66} axisLine={false} tickLine={false} />
         <Tooltip content={<TipBox fmt={fmt} />} />
-        {series.length > 1 && <RLegend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />}
+        {series.length > 1 && <RLegend wrapperStyle={{ fontSize: 13 }} iconType="circle" iconSize={8} formatter={(v) => <span style={{ color: "var(--ink-2)" }}>{v}</span>} />}
         {series.map((s) => area
           ? <Area key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} fill={s.color} fillOpacity={0.14} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, stroke: "var(--surface)" }} isAnimationActive={false} connectNulls />
           : <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, stroke: "var(--surface)", fill: s.color }} activeDot={{ r: 5 }} isAnimationActive={false} connectNulls />)}
@@ -104,10 +104,10 @@ export function SimpleBars({ data, layout = "vertical", fmt, yFmt, height }: { d
   const horizontal = layout === "horizontal";
   return (
     <ResponsiveContainer height={height}>
-      <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 16, right: 16, bottom: 0, left: horizontal ? 8 : 0 }} barCategoryGap="30%">
+      <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 16, right: 16, bottom: 0, left: horizontal ? 8 : 6 }} barCategoryGap="30%">
         {grid}
         {horizontal ? <><XAxis type="number" tick={axis} tickFormatter={yFmt ?? money} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="name" tick={axis} width={130} axisLine={false} tickLine={false} /></>
-          : <><XAxis dataKey="name" tick={axis} axisLine={{ stroke: "var(--border-strong)" }} tickLine={false} interval={0} /><YAxis tick={axis} tickFormatter={yFmt ?? money} width={58} axisLine={false} tickLine={false} /></>}
+          : <><XAxis dataKey="name" tick={axis} axisLine={{ stroke: "var(--border-strong)" }} tickLine={false} interval={0} /><YAxis tick={axis} tickFormatter={yFmt ?? money} width={66} axisLine={false} tickLine={false} /></>}
         <Tooltip content={<TipBox fmt={fmt} />} cursor={{ fill: "var(--surface-2)", opacity: 0.6 }} />
         <Bar dataKey="value" name="Value" radius={horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false}>
           {data.map((d) => <Cell key={d.name} fill={d.color} />)}
